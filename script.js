@@ -571,23 +571,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (typeof actualizarDashboard === "function") {
         actualizarDashboard();
       }
-      const modalControlCausas = document.getElementById("modalControlCausas");
-      const diasRecordatorio = [2, 4, 6]; // martes, jueves, sábado
-      const diaActual = new Date().getDay();
-      if (modalControlCausas && diasRecordatorio.includes(diaActual)) {
-        const cerrarRecordatorio = document.getElementById("modalControlCausasCerrar");
-        if (cerrarRecordatorio) {
-          cerrarRecordatorio.addEventListener("click", () => {
-            modalControlCausas.classList.add("oculto");
-          });
-        }
-        modalControlCausas.addEventListener("click", (e) => {
-          if (e.target === modalControlCausas) {
-            modalControlCausas.classList.add("oculto");
-          }
-        });
-        mostrarModal(modalControlCausas);
-      }
     }
 
     let usuarioActual = null;
