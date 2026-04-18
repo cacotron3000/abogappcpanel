@@ -31,6 +31,11 @@ const NOMBRES_POR_EMAIL = {
   "ijara@gjabogados.cl": "Ignacio Jara Álvarez",
   "jmgorrono@gjabogados.cl": "José M. Gorroño Vega",
 };
+function esUsuarioAdmin(usuario) {
+  if (!usuario) return false;
+  return Boolean(usuario.esAdmin) || usuario.usuario === "admin@gjabogados.cl";
+}
+
 function usuarioKey(base) {
   const u = JSON.parse(localStorage.getItem("usuarioActual") || "null");
   return u ? `${base}_${u.usuario}` : base;
@@ -337,9 +342,114 @@ function refrescarDatos() {
   if (typeof cargarAudiencias === "function") cargarAudiencias();
   if (typeof cargarAudienciasArchivadas === "function") cargarAudienciasArchivadas();
   if (typeof actualizarDashboard === "function") actualizarDashboard();
+  renderVistaHoy();
   actualizarCentroNotificaciones();
 }
 window.refrescarDatos = refrescarDatos;
+
+function normalizarFecha(fecha) {
+  if (!fecha) return null;
+  const d = typeof fecha === "string" ? parseFechaLocal(fecha) : new Date(fecha);
+  return isNaN(d) ? null : d;
+}
+
+function esVencida(fecha, estado = "") {
+  const f = normalizarFecha(fecha);
+  if (!f) return false;
+  if ((estado || "").toLowerCase().includes("termin")) return false;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  return f < hoy;
+}
+
+function registrarReglasProductividad() {
+  const hoyKey = new Date().toISOString().slice(0, 10);
+  const marca = `reglas_hoy_${hoyKey}`;
+  if (localStorage.getItem(marca)) return;
+  const tareas = JSON.parse(localStorage.getItem("tareas") || "[]");
+  const vencidas = tareas.filter((t) => esVencida(t.fin, t.estado)).length;
+  if (vencidas > 0 && window.registrarNotificacion) {
+    registrarNotificacion(`⚠️ Hay ${vencidas} tareas vencidas por revisar.`, "hoy");
+  }
+  localStorage.setItem(marca, "1");
+}
+
+function renderVistaHoy() {
+  const lista = document.getElementById("hoyLista");
+  const resumen = document.getElementById("hoyResumenCarga");
+  if (!lista || !resumen) return;
+
+  const tareas = JSON.parse(localStorage.getItem("tareas") || "[]");
+  const tareasDia = JSON.parse(localStorage.getItem("tareasDia") || "[]");
+  const audiencias = JSON.parse(localStorage.getItem("audiencias") || "[]");
+  const internas = JSON.parse(localStorage.getItem("tareasInternas") || "[]");
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const items = [];
+  tareas.forEach((t) => items.push({ tipo: "Gestión", texto: t.titulo || t.descripcion || "Sin título", fecha: t.fin, asignado: t.asignadoA || "-", estado: t.estado || "-" }));
+  tareasDia.forEach((t) => items.push({ tipo: "Tarea día", texto: t.texto || "Sin texto", fecha: t.fechaFin, asignado: (t.asignadosA || []).join(", "), estado: t.prioridad || "-" }));
+  internas.forEach((t) => items.push({ tipo: "Interna", texto: t.texto || "Sin texto", fecha: t.fechaFin, asignado: (t.asignadosA || []).join(", "), estado: t.prioridad || "-" }));
+  audiencias.forEach((a) => items.push({ tipo: "Audiencia", texto: a.titulo || "Sin título", fecha: a.fecha, asignado: a.modalidad || "-", estado: a.hora || "-" }));
+
+  items.sort((a, b) => {
+    const fa = a.fecha || "9999-12-31";
+    const fb = b.fecha || "9999-12-31";
+    return fa.localeCompare(fb);
+  });
+
+  const vencidas = items.filter((i) => esVencida(i.fecha, i.estado)).length;
+  const deHoy = items.filter((i) => i.fecha === hoy).length;
+  const carga = {};
+  items.forEach((i) => {
+    const k = i.asignado && i.asignado.trim() ? i.asignado : "Sin asignar";
+    carga[k] = (carga[k] || 0) + 1;
+  });
+  resumen.innerHTML = `<p><strong>Hoy:</strong> ${deHoy} | <strong>Vencidas:</strong> ${vencidas} | <strong>Total:</strong> ${items.length}</p>`;
+  resumen.innerHTML += `<p><strong>Carga por responsable:</strong> ${Object.entries(carga).map(([k,v]) => `${k}: ${v}`).join(" · ") || "-"}</p>`;
+
+  lista.innerHTML = "";
+  items.slice(0, 100).forEach((i) => {
+    const div = document.createElement("div");
+    div.className = "hoy-item";
+    const badge = esVencida(i.fecha, i.estado) ? " ⚠️" : "";
+    div.innerHTML = `<strong>[${i.tipo}]</strong> ${i.texto}${badge}<br><small>Fecha: ${i.fecha || "-"} · Responsable: ${i.asignado || "-"} · Estado: ${i.estado || "-"}</small>`;
+    lista.appendChild(div);
+  });
+
+  registrarReglasProductividad();
+}
+
+function obtenerResultadosBusquedaGlobal(termino) {
+  const q = (termino || "").trim().toLowerCase();
+  if (!q) return [];
+  const fuentes = [
+    { tabla: "clientes", label: "Cliente", campo: (x) => `${x.nombre || ""} ${x.correo || ""}` },
+    { tabla: "expedientes", label: "Caso", campo: (x) => `${x.titulo || ""} ${x.tribunal || ""}` },
+    { tabla: "tareas", label: "Gestión", campo: (x) => `${x.titulo || ""} ${x.descripcion || ""}` },
+    { tabla: "audiencias", label: "Audiencia", campo: (x) => `${x.titulo || ""} ${x.notas || ""}` },
+  ];
+  const out = [];
+  fuentes.forEach((f) => {
+    const datos = JSON.parse(localStorage.getItem(f.tabla) || "[]");
+    datos.forEach((d) => {
+      const txt = f.campo(d);
+      if (txt.toLowerCase().includes(q)) {
+        out.push({ tipo: f.label, texto: txt.trim() || "(sin texto)", raw: d });
+      }
+    });
+  });
+  return out.slice(0, 15);
+}
+
+function abrirQuickPanel(titulo, contenidoHtml) {
+  const panel = document.getElementById("quickPanel");
+  const t = document.getElementById("quickPanelTitulo");
+  const c = document.getElementById("quickPanelContenido");
+  if (!panel || !t || !c) return;
+  t.textContent = titulo;
+  c.innerHTML = contenidoHtml;
+  panel.classList.remove("oculto");
+}
 
 // Manejo de capas de modales para permitir abrir un modal sobre otro
 let modalZIndex = 12000;
@@ -430,6 +540,8 @@ function cambiarVista(vistaId) {
     if (typeof mostrarAudienciasProximas === "function") {
       mostrarAudienciasProximas();
     }
+  } else if (vistaId === "hoy") {
+    renderVistaHoy();
   }
 
   // 2) Ocultamos todas las secciones
@@ -464,6 +576,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const centroNotif = document.getElementById("centroNotificaciones");
   const limpiarNotif = document.getElementById("limpiarNotificaciones");
   const notifWrapper = document.getElementById("notificacionesWrapper");
+  const busquedaGlobalInput = document.getElementById("busquedaGlobalInput");
+  const busquedaGlobalResultados = document.getElementById("busquedaGlobalResultados");
+  const quickPanel = document.getElementById("quickPanel");
+  const quickPanelCerrar = document.getElementById("quickPanelCerrar");
   const sidebar = document.querySelector(".sidebar");
   const toggleSidebarBtn = document.getElementById("toggleSidebar");
   if (toggleSidebarBtn && sidebar) {
@@ -523,6 +639,60 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.supabaseSync.subscribeRealtime();
   }
 
+  if (quickPanelCerrar && quickPanel) {
+    quickPanelCerrar.addEventListener("click", () => quickPanel.classList.add("oculto"));
+  }
+
+  if (busquedaGlobalInput && busquedaGlobalResultados) {
+    busquedaGlobalInput.addEventListener("input", () => {
+      const resultados = obtenerResultadosBusquedaGlobal(busquedaGlobalInput.value);
+      if (!resultados.length) {
+        busquedaGlobalResultados.classList.add("oculto");
+        busquedaGlobalResultados.innerHTML = "";
+        return;
+      }
+      busquedaGlobalResultados.innerHTML = resultados
+        .map((r, idx) => `<div class="busqueda-item" data-i="${idx}"><strong>${r.tipo}:</strong> ${r.texto}</div>`)
+        .join("");
+      busquedaGlobalResultados.classList.remove("oculto");
+      busquedaGlobalResultados.querySelectorAll(".busqueda-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          const i = parseInt(item.getAttribute("data-i"), 10);
+          const r = resultados[i];
+          abrirQuickPanel(`Resultado: ${r.tipo}`, `<pre>${JSON.stringify(r.raw, null, 2)}</pre>`);
+          busquedaGlobalResultados.classList.add("oculto");
+        });
+      });
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    const tag = (e.target?.tagName || "").toLowerCase();
+    const editando = tag === "input" || tag === "textarea" || e.target?.isContentEditable;
+    if (editando) return;
+    if (e.key === "/") {
+      e.preventDefault();
+      busquedaGlobalInput?.focus();
+      return;
+    }
+    if (e.key.toLowerCase() === "g") {
+      localStorage.setItem("ultimaVista", "dashboard");
+      cambiarVista("dashboard");
+      return;
+    }
+    if (e.key.toLowerCase() === "h") {
+      localStorage.setItem("ultimaVista", "hoy");
+      cambiarVista("hoy");
+      return;
+    }
+    if (e.key.toLowerCase() === "n") {
+      document.getElementById("nuevaTareaDiaBtnDashboard")?.click();
+    }
+    if (e.key.toLowerCase() === "c") {
+      document.getElementById("abrirFormulario")?.click();
+    }
+  });
+
   aplicarConfiguracion();
 
 
@@ -541,7 +711,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const usuariosBtn = document.getElementById("tabUsuarios");
     if (usuariosBtn) {
       const u = JSON.parse(localStorage.getItem("usuarioActual") || "null");
-      if (u && u.usuario === "admin@gjabogados.cl") {
+      if (esUsuarioAdmin(u)) {
         usuariosBtn.classList.remove("oculto");
       } else {
         usuariosBtn.classList.add("oculto");
@@ -566,23 +736,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (typeof actualizarDashboard === "function") {
         actualizarDashboard();
       }
-      const modalControlCausas = document.getElementById("modalControlCausas");
-      const diasRecordatorio = [2, 4, 6]; // martes, jueves, sábado
-      const diaActual = new Date().getDay();
-      if (modalControlCausas && diasRecordatorio.includes(diaActual)) {
-        const cerrarRecordatorio = document.getElementById("modalControlCausasCerrar");
-        if (cerrarRecordatorio) {
-          cerrarRecordatorio.addEventListener("click", () => {
-            modalControlCausas.classList.add("oculto");
-          });
-        }
-        modalControlCausas.addEventListener("click", (e) => {
-          if (e.target === modalControlCausas) {
-            modalControlCausas.classList.add("oculto");
-          }
-        });
-        mostrarModal(modalControlCausas);
-      }
     }
 
     let usuarioActual = null;
@@ -593,6 +746,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       usuario: email,
       nombre:
         NOMBRES_POR_EMAIL[email] || session.user.user_metadata?.nombre || email,
+      esAdmin: Boolean(session.user.is_admin),
     };
     localStorage.setItem("usuarioActual", JSON.stringify(usuarioActual));
     sessionStart = parseInt(localStorage.getItem("sessionStart") || Date.now());
@@ -613,7 +767,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         password: pass,
       });
       if (error || !data.session) {
-        loginError.textContent = "Credenciales incorrectas";
+        loginError.textContent = error?.message || "No se pudo iniciar sesión. Revisa correo, clave o conexión.";
         return;
       }
       const user = data.user;
@@ -623,6 +777,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           NOMBRES_POR_EMAIL[user.email] ||
           user.user_metadata?.nombre ||
           user.email,
+        esAdmin: Boolean(user.is_admin),
       };
       localStorage.setItem("usuarioActual", JSON.stringify(u));
       sessionStart = Date.now();

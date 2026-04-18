@@ -1555,3 +1555,13 @@ body:not(.dark-mode) .audiencia-card.audiencia-amarilla {
 body:not(.dark-mode) .audiencia-card.audiencia-verde {
   background-color: #99fab8;
 }
+.header-busqueda-global { position: relative; margin-top: 6px; }
+#busquedaGlobalInput { min-width: 260px; padding: 8px 10px; border-radius: 8px; border: 1px solid #cfd8dc; }
+#busquedaGlobalResultados { position: absolute; top: 40px; left: 0; background: #fff; border: 1px solid #d9e1e6; border-radius: 8px; width: 100%; max-height: 260px; overflow: auto; z-index: 20000; }
+.busqueda-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid #f0f2f5; }
+.busqueda-item:hover { background: #f6fbf8; }
+#quickPanel { position: fixed; top: 0; right: 0; width: 360px; max-width: 90vw; height: 100vh; background: var(--color-fondo, #fff); border-left: 1px solid #d9e1e6; z-index: 19000; box-shadow: -8px 0 16px rgba(0,0,0,0.08); }
+.quick-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eceff1; }
+#quickPanelContenido { padding: 12px; overflow-y: auto; max-height: calc(100vh - 50px); }
+.hoy-item { border-bottom: 1px solid #eceff1; padding: 8px 0; }
+.hoy-item small { color: #546e7a; }
