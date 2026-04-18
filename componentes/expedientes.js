@@ -255,6 +255,7 @@ expForm.addEventListener("submit", async (e) => {
 
   let expedientes = JSON.parse(localStorage.getItem("expedientes")) || [];
 
+  const eraEdicion = editandoExpediente;
   if (editandoExpediente) {
     expedientes = expedientes.map((e) => (e.id === nuevoExp.id ? nuevoExp : e));
     editandoExpediente = false;
@@ -270,11 +271,39 @@ expForm.addEventListener("submit", async (e) => {
   }
   if (ok) {
     mostrarNotificacion("Datos guardados", "#00E500");
-    const accion = editandoExpediente ? "modificado" : "creado";
+    const accion = eraEdicion ? "modificado" : "creado";
     registrarNotificacion(
       `Caso "${nuevoExp.titulo}" ${accion} por ${usuario.nombre}`,
       "expedientes"
     );
+    if (!eraEdicion) {
+      const baseFlujos = [];
+      const materia = (nuevoExp.materia || "").toLowerCase();
+      if (materia.includes("familia")) {
+        baseFlujos.push("Revisión de antecedentes", "Borrador de escrito inicial", "Coordinar audiencia");
+      } else if (materia.includes("laboral") || materia.includes("trabajo")) {
+        baseFlujos.push("Revisión documental laboral", "Definir estrategia probatoria", "Seguimiento con cliente");
+      } else {
+        baseFlujos.push("Revisión del caso", "Definir plan de acción");
+      }
+      let tareas = JSON.parse(localStorage.getItem("tareas") || "[]");
+      for (const titulo of baseFlujos) {
+        const t = {
+          id: Date.now() + Math.floor(Math.random() * 10000),
+          titulo: `[Flujo] ${titulo}`,
+          descripcion: `Tarea automática creada por flujo de ${nuevoExp.materia || "caso general"}.`,
+          expedienteId: nuevoExp.id,
+          inicio: new Date().toISOString().slice(0, 10),
+          fin: "",
+          estado: "Pendiente",
+          prioridad: "media",
+          creadoPor: usuario.nombre || "Sistema",
+        };
+        tareas.push(t);
+        if (window.supabaseSync) await supabaseSync.pushRegistro("tareas", t);
+      }
+      localStorage.setItem("tareas", JSON.stringify(tareas));
+    }
     if (["Terminado exitosamente", "Término fallido"].includes(nuevoExp.tramite)) {
       archivarExpediente(nuevoExp.id);
     }
