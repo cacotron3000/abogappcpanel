@@ -1555,3 +1555,32 @@ body:not(.dark-mode) .audiencia-card.audiencia-amarilla {
 body:not(.dark-mode) .audiencia-card.audiencia-verde {
   background-color: #99fab8;
 }
+.header-busqueda-global { position: relative; margin-top: 6px; }
+#busquedaGlobalInput { min-width: 260px; padding: 8px 10px; border-radius: 8px; border: 1px solid #cfd8dc; }
+#busquedaGlobalResultados { position: absolute; top: 40px; left: 0; background: #fff; border: 1px solid #d9e1e6; border-radius: 8px; width: 100%; max-height: 260px; overflow: auto; z-index: 20000; }
+.busqueda-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid #f0f2f5; }
+.busqueda-item:hover { background: #f6fbf8; }
+#quickPanel { position: fixed; top: 0; right: 0; width: 360px; max-width: 90vw; height: 100vh; background: var(--color-fondo, #fff); border-left: 1px solid #d9e1e6; z-index: 19000; box-shadow: -8px 0 16px rgba(0,0,0,0.08); }
+.quick-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eceff1; }
+#quickPanelContenido { padding: 12px; overflow-y: auto; max-height: calc(100vh - 50px); }
+.hoy-item { border-bottom: 1px solid #eceff1; padding: 8px 0; }
+.hoy-item small { color: #546e7a; }
+
+#kpiResumen { display: grid; grid-template-columns: repeat(2, minmax(110px,1fr)); gap: 8px; }
+.kpi-item { background: #f6fbf8; border: 1px solid #dce9e1; border-radius: 8px; padding: 8px; }
+#hoyKanban { display: grid; grid-template-columns: repeat(4, minmax(130px,1fr)); gap: 10px; margin: 12px 0; }
+.hoy-kanban-col { border: 1px solid #e0e6ea; border-radius: 8px; padding: 8px; min-height: 80px; }
+.hoy-kanban-col h4 { margin: 0 0 6px 0; font-size: 0.9rem; }
+.hoy-chip { display: inline-block; font-size: 0.75rem; padding: 2px 6px; border-radius: 999px; background: #eef3f7; margin-left: 6px; }
+.hoy-chip.rojo { background: #ffe2e2; color: #b71c1c; }
+.hoy-chip.amarillo { background: #fff4d6; color: #8d6e00; }
+.hoy-chip.verde { background: #daf5dd; color: #1b5e20; }
+#hoyCalendarioSemanal, #hoyAuditoria { margin: 10px 0; font-size: 0.9rem; }
+
+.hoy-filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.hoy-filtros .mini-boton.activo { background: #2e7d32; color: #fff; }
+@media (max-width: 767px) {
+  #busquedaGlobalInput { min-width: 180px; width: 100%; }
+  .header-busqueda-global { width: 100%; }
+  #hoyKanban { grid-template-columns: repeat(2, minmax(130px,1fr)); }
+}
