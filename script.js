@@ -31,6 +31,11 @@ const NOMBRES_POR_EMAIL = {
   "ijara@gjabogados.cl": "Ignacio Jara Álvarez",
   "jmgorrono@gjabogados.cl": "José M. Gorroño Vega",
 };
+function esUsuarioAdmin(usuario) {
+  if (!usuario) return false;
+  return Boolean(usuario.esAdmin) || usuario.usuario === "admin@gjabogados.cl";
+}
+
 function usuarioKey(base) {
   const u = JSON.parse(localStorage.getItem("usuarioActual") || "null");
   return u ? `${base}_${u.usuario}` : base;
@@ -541,7 +546,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const usuariosBtn = document.getElementById("tabUsuarios");
     if (usuariosBtn) {
       const u = JSON.parse(localStorage.getItem("usuarioActual") || "null");
-      if (u && u.usuario === "admin@gjabogados.cl") {
+      if (esUsuarioAdmin(u)) {
         usuariosBtn.classList.remove("oculto");
       } else {
         usuariosBtn.classList.add("oculto");
@@ -593,6 +598,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       usuario: email,
       nombre:
         NOMBRES_POR_EMAIL[email] || session.user.user_metadata?.nombre || email,
+      esAdmin: Boolean(session.user.is_admin),
     };
     localStorage.setItem("usuarioActual", JSON.stringify(usuarioActual));
     sessionStart = parseInt(localStorage.getItem("sessionStart") || Date.now());
@@ -623,6 +629,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           NOMBRES_POR_EMAIL[user.email] ||
           user.user_metadata?.nombre ||
           user.email,
+        esAdmin: Boolean(user.is_admin),
       };
       localStorage.setItem("usuarioActual", JSON.stringify(u));
       sessionStart = Date.now();

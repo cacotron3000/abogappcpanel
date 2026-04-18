@@ -105,7 +105,8 @@ Esta versión incluye una capa de integración para funcionar en hosting cPanel 
      - `API_KEY` (la misma del `config.php`).
 
 4. **Usuarios de acceso**
-   - Inserta un usuario administrador en `abogapp_users`.
+   - Puedes importar `backend/seed_users.sql`, que incluye los usuarios solicitados y un administrador por defecto.
+   - Administrador por defecto: `admin@gjabogados.cl` / `Admin1234.` (recomendado cambiar clave tras primer acceso).
    - El campo `password_hash` debe ser generado con `password_hash` de PHP.
 
 ### Notas técnicas
