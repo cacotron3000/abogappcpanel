@@ -81,6 +81,7 @@ Esta versión incluye una capa de integración para funcionar en hosting cPanel 
 - `backend/api.php`: API REST para login, usuarios y sincronización de registros.
 - `backend/config.sample.php`: plantilla de credenciales MySQL y API key.
 - `backend/init.sql`: script para crear tablas `abogapp_records` y `abogapp_users`.
+- `backend/seed_users.sql`: usuarios iniciales solicitados para importar directamente.
 
 ### Pasos de configuración
 
