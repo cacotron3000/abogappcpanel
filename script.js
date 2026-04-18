@@ -520,7 +520,11 @@ function setSelectValue(select, value) {
 
 function cambiarVista(vistaId) {
   const vistaMostrada = document.getElementById(`vista-${vistaId}`);
-  if (!vistaMostrada) return;
+  if (!vistaMostrada) {
+    vistaId = "dashboard";
+  }
+  const vistaFinal = document.getElementById(`vista-${vistaId}`);
+  if (!vistaFinal) return;
 
   // 1) Recargar datos antes de mostrar la sección
   if (vistaId === "clientes" && typeof cargarClientes === "function") {
@@ -533,8 +537,6 @@ function cambiarVista(vistaId) {
   } else if (vistaId === "tareas" && typeof cargarTareasDia === "function") {
     cargarTareasDia();
     cargarTareasDiaArchivadas();
-  } else if (vistaId === "mistareas" && typeof cargarMisTareas === "function") {
-    cargarMisTareas();
   } else if (vistaId === "audiencias" && typeof cargarAudiencias === "function") {
     cargarAudiencias();
     if (typeof mostrarAudienciasProximas === "function") {
@@ -550,7 +552,7 @@ function cambiarVista(vistaId) {
   document.querySelectorAll(".tab").forEach(boton => boton.classList.remove("active"));
 
   // 3) Mostramos la sección ya cargada
-  vistaMostrada.classList.remove("oculto");
+  vistaFinal.classList.remove("oculto");
   vistaActual = vistaId;
 
   const botonActivo = document.querySelector(`.tab[data-tab="${vistaId}"]`);
