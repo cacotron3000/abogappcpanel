@@ -106,7 +106,7 @@ Esta versión incluye una capa de integración para funcionar en hosting cPanel 
 
 4. **Usuarios de acceso**
    - Puedes importar `backend/seed_users.sql`, que incluye los usuarios solicitados y un administrador por defecto.
-   - Administrador por defecto: `admin@gjabogados.cl` / `Admin1234.` (recomendado cambiar clave tras primer acceso).
+   - Administrador por defecto: `admin@gjabogados.cl` / `R@bula04` (recomendado cambiar clave tras primer acceso).
    - El campo `password_hash` debe ser generado con `password_hash` de PHP.
 
 ### Notas técnicas
