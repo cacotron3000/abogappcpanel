@@ -525,10 +525,18 @@ function abrirQuickPanel(titulo, contenidoHtml) {
 function actualizarKpiResumen() {
   const el = document.getElementById("kpiResumen");
   if (!el) return;
-  const tareas = JSON.parse(localStorage.getItem("tareas") || "[]");
+  const tareasGestion = JSON.parse(localStorage.getItem("tareas") || "[]");
+  const tareasDia = JSON.parse(localStorage.getItem("tareasDia") || "[]");
+  const tareasInternas = JSON.parse(localStorage.getItem("tareasInternas") || "[]");
+  const mapaTareas = new Map();
+  [...tareasGestion, ...tareasDia, ...tareasInternas].forEach((t) => {
+    const key = `${t.id ?? ""}-${t.titulo || t.texto || ""}`;
+    mapaTareas.set(key, t);
+  });
+  const tareas = Array.from(mapaTareas.values());
   const audiencias = JSON.parse(localStorage.getItem("audiencias") || "[]");
   const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
-  const vencidas = tareas.filter((t) => esVencida(t.fin, t.estado)).length;
+  const vencidas = tareas.filter((t) => esVencida(t.fin || t.fechaFin, t.estado)).length;
   const terminadas = tareas.filter((t) => (t.estado || "").toLowerCase().includes("termin")).length;
   el.innerHTML = `
     <div class="kpi-item"><strong>Clientes</strong><br>${clientes.length}</div>
