@@ -5,13 +5,13 @@
 -- ijara => Benja1937
 --
 -- Nota: el login de la app valida formato email en frontend,
--- por eso se usan correos con dominio local.
+-- por eso se usan correos del dominio gjabogados.cl.
 
 INSERT INTO abogapp_users (email, nombre, password_hash, is_admin, active)
 VALUES
-  ('jmgorrono@abogapp.local', 'jmgorrono', '$2y$12$b6cd5zkb33NHFZZHZxkzMOHAqdMKcPnmIIi91HEM.zCw7UhcdBOjO', 1, 1),
-  ('cgorrono@abogapp.local', 'cgorrono', '$2y$12$KLgi3xubyKS2FdvUu/.dbOth23gw6yzZyCzHJvqgimkn6URUKLiUu', 1, 1),
-  ('ijara@abogapp.local', 'ijara', '$2y$12$UEe.N7v1FwHr5TZUhJfVPOp3kuSV6SAnukpoJ4TwVj0qf.sk25TvS', 1, 1)
+  ('jmgorrono@gjabogados.cl', 'jmgorrono', '$2y$12$b6cd5zkb33NHFZZHZxkzMOHAqdMKcPnmIIi91HEM.zCw7UhcdBOjO', 1, 1),
+  ('cgorrono@gjabogados.cl', 'cgorrono', '$2y$12$KLgi3xubyKS2FdvUu/.dbOth23gw6yzZyCzHJvqgimkn6URUKLiUu', 1, 1),
+  ('ijara@gjabogados.cl', 'ijara', '$2y$12$UEe.N7v1FwHr5TZUhJfVPOp3kuSV6SAnukpoJ4TwVj0qf.sk25TvS', 1, 1)
 ON DUPLICATE KEY UPDATE
   nombre = VALUES(nombre),
   password_hash = VALUES(password_hash),
