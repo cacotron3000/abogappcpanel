@@ -67,3 +67,50 @@ Para personalizar las cotizaciones en Word crea el archivo `templatepropuesta.do
 
 Cuando se exporta a Word, la aplicación reemplazará cada etiqueta por el valor correspondiente.
 
+
+---
+
+## 🔌 Adaptación para base de datos cPanel (MySQL)
+
+Esta versión incluye una capa de integración para funcionar en hosting cPanel con **PHP + MySQL**, sin Supabase.
+
+### Archivos agregados
+
+- `cpanel.config.js`: configuración activa en frontend (URL del API y API key).
+- `cpanel.config.example.js`: plantilla de referencia.
+- `backend/api.php`: API REST para login, usuarios y sincronización de registros.
+- `backend/config.sample.php`: plantilla de credenciales MySQL y API key.
+- `backend/init.sql`: script para crear tablas `abogapp_records` y `abogapp_users`.
+- `backend/seed_users.sql`: usuarios iniciales solicitados para importar directamente.
+
+### Pasos de configuración
+
+1. **Base de datos en cPanel**
+   - Crea una base MySQL y un usuario con permisos completos.
+   - Ejecuta `backend/init.sql` en phpMyAdmin.
+
+2. **Configurar backend**
+   - Copia `backend/config.sample.php` como `backend/config.php`.
+   - Completa:
+     - `db_host`
+     - `db_name`
+     - `db_user`
+     - `db_pass`
+     - `api_key`
+
+3. **Configurar frontend**
+   - Edita `cpanel.config.js`.
+   - Define:
+     - `API_BASE_URL` (por ejemplo `/backend/api.php` o URL absoluta).
+     - `API_KEY` (la misma del `config.php`).
+
+4. **Usuarios de acceso**
+   - Puedes importar `backend/seed_users.sql`, que incluye los usuarios solicitados y un administrador por defecto.
+   - Administrador por defecto: `admin@gjabogados.cl` / `R@bula04` (recomendado cambiar clave tras primer acceso).
+   - El campo `password_hash` debe ser generado con `password_hash` de PHP.
+
+### Notas técnicas
+
+- La app mantiene los nombres de funciones `supabaseSync`, `supabaseAuth`, `sb` y `sbAdmin` por compatibilidad con el código existente.
+- La sincronización funciona mediante peticiones HTTP; no hay tiempo real por websockets.
+- Los datos de cada módulo (clientes, tareas, expedientes, audiencias, etc.) se guardan como JSON por tabla lógica en `abogapp_records`.
