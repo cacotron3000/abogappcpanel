@@ -409,6 +409,25 @@ function renderVistaHoy() {
   internas.forEach((t) => items.push({ tipo: "Interna", texto: t.texto || "Sin texto", fecha: t.fechaFin, asignado: (t.asignadosA || []).join(", "), estado: t.prioridad || "-" }));
   audiencias.forEach((a) => items.push({ tipo: "Audiencia", texto: a.titulo || "Sin título", fecha: a.fecha, asignado: a.modalidad || "-", estado: a.hora || "-" }));
 
+  const hoyDate = new Date();
+  const inicioSemana = new Date(hoyDate);
+  inicioSemana.setDate(hoyDate.getDate() - hoyDate.getDay());
+  inicioSemana.setHours(0, 0, 0, 0);
+  const finSemana = new Date(inicioSemana);
+  finSemana.setDate(inicioSemana.getDate() + 7);
+
+  let itemsFiltrados = items;
+  if (filtroHoy === "hoy") {
+    itemsFiltrados = items.filter((i) => i.fecha === hoy);
+  } else if (filtroHoy === "vencidas") {
+    itemsFiltrados = items.filter((i) => esVencida(i.fecha, i.estado));
+  } else if (filtroHoy === "semana") {
+    itemsFiltrados = items.filter((i) => {
+      const f = normalizarFecha(i.fecha);
+      return f && f >= inicioSemana && f < finSemana;
+    });
+  }
+
   items.sort((a, b) => {
     const fa = a.fecha || "9999-12-31";
     const fb = b.fecha || "9999-12-31";
@@ -536,6 +555,43 @@ function abrirQuickPanel(titulo, contenidoHtml) {
   c.innerHTML = contenidoHtml;
   panel.classList.remove("oculto");
 }
+
+function mostrarDetalleEntidad(tipo, data) {
+  if (!data) return;
+  if (tipo === "tarea") {
+    abrirQuickPanel(
+      `Detalle tarea: ${data.titulo || data.texto || "Sin título"}`,
+      `<p><strong>Descripción:</strong> ${data.descripcion || "-"}</p>
+       <p><strong>Estado:</strong> ${data.estado || "-"}</p>
+       <p><strong>Prioridad:</strong> ${data.prioridad || "-"}</p>
+       <p><strong>Inicio:</strong> ${data.inicio || "-"}</p>
+       <p><strong>Fin:</strong> ${data.fin || data.fechaFin || "-"}</p>
+       <p><strong>Creado por:</strong> ${data.creadoPor || "-"}</p>`
+    );
+    return;
+  }
+  if (tipo === "cliente") {
+    abrirQuickPanel(
+      `Cliente: ${data.nombre || "Sin nombre"}`,
+      `<p><strong>Correo:</strong> ${data.correo || "-"}</p>
+       <p><strong>Teléfono:</strong> ${data.telefono || "-"}</p>
+       <p><strong>Dirección:</strong> ${data.direccion || "-"}</p>
+       <p><strong>RUT:</strong> ${data.rut || "-"}</p>
+       <p><strong>Notas:</strong> ${data.confidencial || "-"}</p>`
+    );
+    return;
+  }
+  if (tipo === "audiencia") {
+    abrirQuickPanel(
+      `Audiencia: ${data.titulo || "Sin título"}`,
+      `<p><strong>Tipo:</strong> ${data.tipo || "-"}</p>
+       <p><strong>Modalidad:</strong> ${data.modalidad || "-"}</p>
+       <p><strong>Fecha/Hora:</strong> ${data.fecha || "-"} ${data.hora || ""}</p>
+       <p><strong>Notas:</strong> ${data.notas || "-"}</p>`
+    );
+  }
+}
+window.mostrarDetalleEntidad = mostrarDetalleEntidad;
 
 function actualizarKpiResumen() {
   const el = document.getElementById("kpiResumen");
@@ -1138,21 +1194,3 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 });
-  const hoyDate = new Date();
-  const inicioSemana = new Date(hoyDate);
-  inicioSemana.setDate(hoyDate.getDate() - hoyDate.getDay());
-  inicioSemana.setHours(0, 0, 0, 0);
-  const finSemana = new Date(inicioSemana);
-  finSemana.setDate(inicioSemana.getDate() + 7);
-
-  let itemsFiltrados = items;
-  if (filtroHoy === "hoy") {
-    itemsFiltrados = items.filter((i) => i.fecha === hoy);
-  } else if (filtroHoy === "vencidas") {
-    itemsFiltrados = items.filter((i) => esVencida(i.fecha, i.estado));
-  } else if (filtroHoy === "semana") {
-    itemsFiltrados = items.filter((i) => {
-      const f = normalizarFecha(i.fecha);
-      return f && f >= inicioSemana && f < finSemana;
-    });
-  }

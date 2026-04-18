@@ -433,6 +433,10 @@ function verDetalleTarea(id) {
   const clientes = JSON.parse(localStorage.getItem("clientes")) || [];
   const t = todas.find(t => t.id === id);
   if (!t) return;
+  if (window.mostrarDetalleEntidad) {
+    window.mostrarDetalleEntidad("tarea", t);
+    return;
+  }
 
   const expediente = expedientes.find(e => e.id === t.expedienteId);
   const nombreExp = expediente ? expediente.titulo : "📁 Sin título";

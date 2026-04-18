@@ -149,3 +149,6 @@ Se incorporaron mejoras rápidas enfocadas en operación diaria:
 - KPI navegables (clic para abrir vistas/filtros).
 - Filtros de la vista Hoy (todos/hoy/vencidas/semana).
 - Búsqueda global con navegación por teclado (↑ ↓ Enter).
+
+### Sistema de detalle sin modales
+Se incorporó un enfoque de **ficha lateral** (`quickPanel`) para mostrar detalles de tareas, clientes y audiencias sin abrir modales superpuestos. Esto reduce interrupciones y permite navegación más fluida.
