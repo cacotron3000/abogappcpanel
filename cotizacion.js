@@ -1,0 +1,123 @@
+'use strict';
+
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('propuestaForm');
+    if(!form) return;
+    const submitBtn = form.querySelector('#btnGenerarDocx');
+    const docxLoader = document.getElementById('docxLoader');
+    const fijoInputs = form.querySelectorAll('input.fijo');
+    const formatPeso = (v) => {
+        const num = parseInt((v || '').replace(/\D/g, '')); 
+        if (isNaN(num)) return '';
+        return '$' + num.toLocaleString('es-CL') + '.-';
+    };
+    fijoInputs.forEach(inp => {
+        inp.addEventListener('blur', () => {
+            inp.value = formatPeso(inp.value);
+        });
+        inp.addEventListener('focus', () => {
+            inp.value = inp.value.replace(/[^0-9]/g,'');
+        });
+    });
+
+    // Solo se necesita PizZip para reemplazar etiquetas en el DOCX
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if(submitBtn) submitBtn.disabled = true;
+        if(docxLoader) docxLoader.classList.remove('oculto');
+        const datos = Object.fromEntries(new FormData(form).entries());
+        const usuario = JSON.parse(localStorage.getItem('usuarioActual') || '{}');
+
+        const cotizacion = Array.from({ length: 4 }, (_, i) => ({
+            concepto: datos[`concepto${i + 1}`],
+            fijo: datos[`fijo${i + 1}`],
+            variable: datos[`variable${i + 1}`]
+        }));
+
+        let numero = 0;
+        try {
+            const { data, error } = await sb
+                .from('cotizaciones')
+                .insert({})
+                .select('id')
+                .single();
+            if (error) throw error;
+            numero = data.id;
+        } catch (err) {
+            console.error('Error storing quotation number', err);
+            const propuestas = JSON.parse(localStorage.getItem('propuestas')) || [];
+            numero = 182 + propuestas.length;
+        }
+
+        const propuestas = JSON.parse(localStorage.getItem('propuestas')) || [];
+        const propuesta = { ...datos, cotizacion, numero };
+        propuestas.push(propuesta);
+        localStorage.setItem('propuestas', JSON.stringify(propuestas));
+
+        try {
+            const fechaParts = datos.fecha ? datos.fecha.split('-') : [];
+            const fechaFormateada =
+                fechaParts.length === 3
+                    ? `${fechaParts[2]}-${fechaParts[1]}-${fechaParts[0]}`
+                    : datos.fecha;
+            let resumen = datos.servicio ? datos.servicio.trim() : '';
+            if (resumen.endsWith('.')) resumen = resumen.slice(0, -1);
+
+            const replacements = {
+                '\\[Nombre cliente\\]': datos.nombre,
+                '\\[Mail\\]': datos.mail,
+                '\\[Materia\\]': datos.materia,
+                '\\[Fecha\\]': fechaFormateada,
+                '\\[Servicio requerido\\]': resumen,
+                '\\[Propuesta de servicio\\]': datos.propuesta,
+                '\\[N\u00famero\\]': numero,
+                '\\[Numero\\]': numero,
+                '\\[Usuario\\]': usuario.usuario || usuario.nombre || ''
+            };
+
+            cotizacion.forEach((c, i) => {
+                replacements[`\\[Concepto ${i + 1}\\]`] = c.concepto || '';
+                replacements[`\\[Fijo ${i + 1}\\]`] = c.fijo;
+                replacements[`\\[Variable ${i + 1}\\]`] = c.variable;
+            });
+
+            const resp = await fetch('templatepropuesta.docx');
+            if(!resp.ok) throw new Error('template_missing');
+            const buffer = await resp.arrayBuffer();
+            const zip = new PizZip(buffer);
+            let docXml = zip.file('word/document.xml').asText();
+            for (const [pattern, value] of Object.entries(replacements)) {
+                docXml = docXml.replace(new RegExp(pattern, 'g'), value || '');
+            }
+            zip.file('word/document.xml', docXml);
+            const blob = zip.generate({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `N${numero} ${datos.nombre}.docx`;
+            document.body.appendChild(link);
+            link.click();
+            if (window.mostrarAlertaModal) {
+                window.mostrarAlertaModal(
+                    'Cotizaci\u00f3n generada satisfactoriamente. \u00a1Recuerda subirla a <strong>Google Drive</strong>!',
+                    'https://drive.google.com/drive/folders/1FBctJ8BlyM6twOBn_xRw8R_mW8xsqBPj'
+                );
+            }
+            setTimeout(() => {
+                URL.revokeObjectURL(link.href);
+                document.body.removeChild(link);
+            }, 100);
+
+            form.reset();
+        } catch (err) {
+            console.error(err);
+            if (window.mostrarToast) {
+                window.mostrarToast('No se pudo generar el DOCX.', '#e53935');
+            } else {
+                alert('No se pudo generar el DOCX.');
+            }
+        } finally {
+            if(submitBtn) submitBtn.disabled = false;
+            if(docxLoader) docxLoader.classList.add('oculto');
+        }
+    });
+});

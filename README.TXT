@@ -1,0 +1,69 @@
+# ⚖️ AbogApp Beta
+
+**AbogApp** es una aplicación web ligera de gestión legal pensada para estudios jurídicos pequeños o medianos. Permite registrar clientes, asignar expedientes, crear tareas asociadas y hacer seguimiento en un panel central. Todo el contenido se guarda localmente en el navegador mediante `localStorage`, mientras que las credenciales de acceso se gestionan con **Supabase Auth**.
+
+---
+
+La versión actual puede sincronizarse con **Supabase** para un almacenamiento remoto. Se incluye un archivo `supabase_schema.sql` para crear la base de datos en ese servicio.
+## 🧩 Características Principales
+
+- 📁 **Gestión de Expedientes**  
+  Crea, edita y visualiza expedientes con campos como tribunal, materia, estado de la propuesta, trámite, honorarios y más.
+
+- 👤 **Registro de Clientes**  
+  Guarda datos de contacto, dirección, notas internas y enlaces a carpetas Drive por cliente.
+
+- 📝 **Tareas Legales**  
+  Asocia tareas a expedientes, define fechas, prioridades y estados de ejecución.
+
+- 📊 **Dashboard Interactivo**  
+  Visualiza resumen de clientes, expedientes y tareas, orden cronológico por vencimiento y tareas urgentes destacadas.
+
+- 🛠️ **Utilidades de Importación/Exportación**
+  Realiza backups en `.json` y carga datos desde archivo para facilitar pruebas o migraciones.
+- ⭐ **Iconos Font Awesome Sharp**
+  La interfaz utiliza la familia de iconos Sharp de Font Awesome para una apariencia moderna.
+- 👥 **Miembros del equipo**
+  La tarjeta de dashboard incluye a Ignacio Jara Álvarez,
+  José M. Gorroño Vega y Carlos Gorroño Vega.
+
+---
+
+## 📁 Estructura del Proyecto
+
+
+### Base de datos Supabase
+El archivo `supabase_schema.sql` define las tablas necesarias para replicar la base de datos en Supabase.
+Cada tabla incluye una columna `app_id` que almacena el identificador usado por la aplicación. De esta forma Supabase puede generar su propio `id` autoincremental sin interferir con los enlaces locales. Las claves foráneas de `expedientes` y `tareas` apuntan al `app_id` del registro relacionado. Existe además una tabla `diario` para sincronizar las tareas del día y tres tablas adicionales (`casosarchivados`, `gestionesarchivadas` y `diarioarchivadas`) que almacenan los registros archivados. Ejecuta este archivo en tu proyecto de Supabase para crear o actualizar las tablas. Puedes abrir el **SQL Editor** de Supabase Studio, pegar el contenido del archivo y ejecutar la consulta para aplicar los cambios.
+Para conectar la app se inicializa un cliente con las siguientes credenciales de ejemplo:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://vvibgzurltpfqhugcvjz.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2aWJnenVybHRwZnFodWdjdmp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1MTE2MzMsImV4cCI6MjA2NzA4NzYzM30.Hy5S_Ap2u0LHmXMK66zpUhwbuKf8hAUA2OPvOdsSpdM
+```
+
+Supabase Auth se utiliza para el inicio de sesión de los usuarios, por lo que las cuentas deben crearse previamente en tu proyecto de Supabase.
+
+En el código se almacenan cifradas utilizando AES. `supabaseClient.js` las descifra con una frase secreta en tiempo de ejecución.
+
+Estas se utilizan en `supabaseClient.js` para crear el cliente.
+La sincronización con Supabase es bidireccional. Al iniciar la aplicación se descargan los registros remotos y cualquier cambio en el navegador se envía automáticamente mediante `upsert`. Cada vez que se agrega un nuevo cliente, caso o tarea, ese registro se inserta de inmediato en Supabase. Además se escuchan eventos en tiempo real para mantener actualizados los datos locales.
+El helper global `supabaseSync.pushRegistro(tabla, dato)` permite enviar un único
+registro a Supabase desde cualquier módulo.
+Cuando se sincroniza, se utiliza la columna `app_id` para determinar si el registro
+ya existe o debe insertarse. Esto evita errores de identidad al publicar datos.
+
+## Plantilla DOCX
+Para personalizar las cotizaciones en Word crea el archivo `templatepropuesta.docx` en la raíz del proyecto. Utiliza etiquetas como las siguientes para insertar los datos dinámicos:
+- `[Nombre cliente]`
+- `[Mail]`
+- `[Materia]`
+- `[Fecha]`
+- `[Servicio requerido]`
+- `[Propuesta de servicio]`
+- `[Numero]` o `[Número]`
+- `[Usuario]`
+- `[Concepto 1]`, `[Fijo 1]`, `[Variable 1]` (y así sucesivamente)
+
+Cuando se exporta a Word, la aplicación reemplazará cada etiqueta por el valor correspondiente.
+
