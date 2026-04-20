@@ -553,18 +553,33 @@ function renderVistaHoy() {
       const relevantes = (rows || []).filter((r) => {
         const table = (r.table_name || "").toLowerCase();
         const action = (r.action || "").toLowerCase();
-        const esBorrado = action.includes("delete") && ["tareas", "tareasinternas", "audiencias", "diario"].includes(table);
+        const esBorrado = action.includes("delete") && ["tareas", "tareasinternas", "audiencias", "diario", "clientes"].includes(table);
         const esCompletado = action.includes("upsert") && ["gestionesarchivadas", "diarioarchivadas", "audienciasarchivadas"].includes(table);
         return esBorrado || esCompletado;
       });
       const top = relevantes.slice(0, 8);
-      const agrupada = {};
-      top.forEach((r) => {
-        const key = r.table_name || "otro";
-        agrupada[key] = agrupada[key] || [];
-        agrupada[key].push(`[${r.action}] #${r.app_id || "-"} por ${r.actor || "sistema"}`);
+      const nombreActor = (actor) => {
+        if (!actor) return "sistema";
+        return NOMBRES_POR_EMAIL[actor] || actor;
+      };
+      const mensajes = top.map((r) => {
+        const table = (r.table_name || "").toLowerCase();
+        const action = (r.action || "").toLowerCase();
+        const actor = nombreActor(r.actor);
+        if (action.includes("delete")) {
+          if (table === "clientes") return `Cliente eliminado por ${actor}`;
+          if (table === "tareasinternas") return `Tarea interna eliminada por ${actor}`;
+          if (table === "audiencias") return `Audiencia eliminada por ${actor}`;
+          if (table === "tareas" || table === "diario") return `Tarea eliminada por ${actor}`;
+        }
+        if (action.includes("upsert")) {
+          if (table === "gestionesarchivadas") return `Tarea terminada por ${actor}`;
+          if (table === "diarioarchivadas") return `Tarea del día terminada por ${actor}`;
+          if (table === "audienciasarchivadas") return `Audiencia terminada por ${actor}`;
+        }
+        return `Movimiento registrado por ${actor}`;
       });
-      hoyAuditoria.innerHTML = `<strong>Auditoría reciente (completadas/borradas):</strong> ${Object.entries(agrupada).map(([k, v]) => `${k}: ${v.join(", ")}`).join(" · ") || "Sin movimientos recientes"}`;
+      hoyAuditoria.innerHTML = `<strong>Auditoría reciente:</strong> ${mensajes.join(" · ") || "Sin movimientos recientes"}`;
     });
   }
 
