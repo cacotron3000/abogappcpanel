@@ -422,10 +422,32 @@ function renderVistaHoy() {
   const hoy = new Date().toISOString().slice(0, 10);
 
   const items = [];
-  tareas.forEach((t) => items.push({ tipo: "Gestión", texto: t.titulo || t.descripcion || "Sin título", fecha: t.fin, asignado: t.asignadoA || "-", estado: t.estado || "-" }));
-  tareasDia.forEach((t) => items.push({ tipo: "Tarea día", texto: t.texto || "Sin texto", fecha: t.fechaFin, asignado: (t.asignadosA || []).join(", "), estado: t.prioridad || "-" }));
-  internas.forEach((t) => items.push({ tipo: "Interna", texto: t.texto || "Sin texto", fecha: t.fechaFin, asignado: (t.asignadosA || []).join(", "), estado: t.prioridad || "-" }));
-  audiencias.forEach((a) => items.push({ tipo: "Audiencia", texto: a.titulo || "Sin título", fecha: a.fecha, asignado: a.modalidad || "-", estado: a.hora || "-" }));
+  tareas.forEach((t) => items.push({
+    tipo: "Gestión",
+    texto: t.titulo || t.descripcion || "Sin título",
+    fecha: t.fin || "",
+    fechaAlt: t.inicio || t.created_at || "",
+    asignado: t.asignadoA || "-",
+    estado: t.estado || "-"
+  }));
+  tareasDia.forEach((t) => items.push({
+    tipo: "Tarea día",
+    texto: t.texto || "Sin texto",
+    fecha: t.fechaFin || "",
+    fechaAlt: t.creadoEn || "",
+    asignado: (t.asignadosA || []).join(", "),
+    estado: t.prioridad || "-"
+  }));
+  internas.forEach((t) => items.push({
+    tipo: "Interna",
+    texto: t.texto || "Sin texto",
+    fecha: t.fechaFin || "",
+    fechaAlt: t.creadoEn || "",
+    asignado: (t.asignadosA || []).join(", "),
+    estado: t.prioridad || "-"
+  }));
+  audiencias.forEach((a) => items.push({ tipo: "Audiencia", texto: a.titulo || "Sin título", fecha: a.fecha || "", fechaAlt: "", asignado: a.modalidad || "-", estado: a.hora || "-" }));
+  const fechaOperativa = (i) => i.fecha || i.fechaAlt || "";
 
   const hoyDate = new Date();
   const inicioSemana = new Date(hoyDate);
@@ -436,12 +458,15 @@ function renderVistaHoy() {
 
   let itemsFiltrados = items;
   if (filtroHoy === "hoy") {
-    itemsFiltrados = items.filter((i) => i.fecha === hoy);
+    itemsFiltrados = items.filter((i) => {
+      const f = normalizarFecha(fechaOperativa(i));
+      return f && f.toISOString().slice(0, 10) === hoy;
+    });
   } else if (filtroHoy === "vencidas") {
     itemsFiltrados = items.filter((i) => esVencida(i.fecha, i.estado));
   } else if (filtroHoy === "semana") {
     itemsFiltrados = items.filter((i) => {
-      const f = normalizarFecha(i.fecha);
+      const f = normalizarFecha(fechaOperativa(i));
       return f && f >= inicioSemana && f < finSemana;
     });
   }
@@ -450,13 +475,16 @@ function renderVistaHoy() {
   }
 
   items.sort((a, b) => {
-    const fa = a.fecha || "9999-12-31";
-    const fb = b.fecha || "9999-12-31";
+    const fa = fechaOperativa(a) || "9999-12-31";
+    const fb = fechaOperativa(b) || "9999-12-31";
     return fa.localeCompare(fb);
   });
 
   const vencidas = items.filter((i) => esVencida(i.fecha, i.estado)).length;
-  const deHoy = items.filter((i) => i.fecha === hoy).length;
+  const deHoy = items.filter((i) => {
+    const f = normalizarFecha(fechaOperativa(i));
+    return f && f.toISOString().slice(0, 10) === hoy;
+  }).length;
   const carga = {};
   items.forEach((i) => {
     const k = i.asignado && i.asignado.trim() ? i.asignado : "Sin asignar";
@@ -473,7 +501,7 @@ function renderVistaHoy() {
   resumen.innerHTML += `<p><strong>Carga por responsable:</strong> ${Object.entries(carga).map(([k,v]) => `${k}: ${v}`).join(" · ") || "-"}</p>`;
   resumen.innerHTML += `<p><strong>Sugerencia próxima asignación:</strong> ${sugerido}</p>`;
   resumen.innerHTML += `<p><strong>Control semanal:</strong> ${items.filter((i) => {
-    const f = normalizarFecha(i.fecha);
+    const f = normalizarFecha(fechaOperativa(i));
     return f && f >= inicioSemana && f < finSemana;
   }).length} hitos en esta semana</p>`;
 
@@ -481,7 +509,7 @@ function renderVistaHoy() {
     const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
     const semana = {};
     items.forEach((i) => {
-      const f = normalizarFecha(i.fecha);
+      const f = normalizarFecha(fechaOperativa(i));
       const d = f ? dias[f.getDay()] : "Sin fecha";
       semana[d] = (semana[d] || 0) + 1;
     });
@@ -494,7 +522,8 @@ function renderVistaHoy() {
     div.className = "hoy-item";
     const badge = esVencida(i.fecha, i.estado) ? " ⚠️" : "";
     const sla = obtenerSla(i.fecha, i.estado);
-    div.innerHTML = `<strong>[${i.tipo}]</strong> ${i.texto}${badge}<span class="hoy-chip ${sla}">${sla.toUpperCase()}</span><br><small>Fecha: ${i.fecha || "-"} · Responsable: ${i.asignado || "-"} · Estado: ${i.estado || "-"}</small>`;
+    const fechaVisible = fechaOperativa(i) || "-";
+    div.innerHTML = `<strong>[${i.tipo}]</strong> ${i.texto}${badge}<span class="hoy-chip ${sla}">${sla.toUpperCase()}</span><br><small>Fecha: ${fechaVisible} · Responsable: ${i.asignado || "-"} · Estado: ${i.estado || "-"}</small>`;
     lista.appendChild(div);
   });
 
