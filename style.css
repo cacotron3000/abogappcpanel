@@ -1842,6 +1842,38 @@ body.dark-mode #quickPanel {
   border-left: 1px solid rgba(148, 163, 184, 0.3);
 }
 
+/* === Radio global configurable === */
+:where(
+  .site-header,
+  .card,
+  .dashboard-card,
+  .element-card,
+  .tarea-card,
+  .tarea-dia-card,
+  .audiencia-card,
+  .modal-contenido,
+  .mini-boton,
+  .boton,
+  .boton-editar,
+  .quickpanel-edit-btn,
+  .sidebar button,
+  .sidebar-toggle,
+  #quickPanel,
+  #quickPanelContenido,
+  #busquedaGlobalInput,
+  #busquedaGlobalResultados,
+  .kpi-item,
+  .hoy-kanban-col,
+  .hoy-item,
+  input,
+  select,
+  textarea,
+  .choices__inner,
+  .choices__list--dropdown
+) {
+  border-radius: var(--radius) !important;
+}
+
 @media (max-width: 767px) {
   .site-header {
     top: 0;
