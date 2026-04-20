@@ -1728,6 +1728,50 @@ textarea:focus-visible {
 
 .quick-panel-header {
   background: linear-gradient(180deg, #f8fafc, #eef2f7);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.quick-panel-header .mini-boton {
+  min-height: 34px;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quick-panel-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.quickpanel-edit-btn {
+  position: static;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: #1f2937;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quickpanel-edit-btn:hover {
+  background: #0f172a;
+}
+
+body.dark-mode .quickpanel-edit-btn {
+  background: #334155;
+  color: #f8fafc;
+}
+
+body.dark-mode .quickpanel-edit-btn:hover {
+  background: #1e293b;
 }
 
 .hoy-chip {

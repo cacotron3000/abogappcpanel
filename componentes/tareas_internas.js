@@ -153,6 +153,10 @@ function verDetalleTareaInterna(id) {
   const t = todas.find(x => x.id === id);
   const modal = document.getElementById("modalDetalleTareaInterna");
   if (!t || !modal) return;
+  if (window.mostrarDetalleEntidad) {
+    window.mostrarDetalleEntidad("tarea_interna", t);
+    return;
+  }
   document.getElementById("detalleTareaInternaTitulo").textContent = `📝 ${t.texto}`;
   const nombres = t.asignadosA || [];
   const asignado = nombres.length ? nombres.join(", ") : "Sin asignar";

@@ -213,6 +213,10 @@ function verDetalleTareaDia(id) {
   const t = todas.find(x => x.id === id);
   const modal = document.getElementById("modalDetalleTareaDia");
   if (!t || !modal) return;
+  if (window.mostrarDetalleEntidad) {
+    window.mostrarDetalleEntidad("tarea_dia", t);
+    return;
+  }
   document.getElementById("detalleTareaTitulo").textContent = `📝 ${t.texto}`;
   const nombres = t.asignadosA || (t.asignadoA ? [t.asignadoA] : []);
   const asignado = nombres.length ? nombres.join(", ") : "Sin asignar";

@@ -567,15 +567,15 @@ function renderQuickPanelResultado(r) {
   const raw = r?.raw || {};
   if (r?.tipo === "Cliente") {
     return `<p><strong>Nombre:</strong> ${raw.nombre || "-"}</p><p><strong>Correo:</strong> ${raw.correo || "-"}</p><p><strong>Teléfono:</strong> ${raw.telefono || "-"}</p>
-    <button class="boton-editar" onclick="if (typeof editarCliente==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarCliente(${raw.id}); mostrarModal(document.getElementById('modalFormulario'));}">✏️ Editar</button>`;
+    <button class="quickpanel-edit-btn" onclick="if (typeof editarCliente==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarCliente(${raw.id}); mostrarModal(document.getElementById('modalFormulario'));}">✏️ Editar</button>`;
   }
   if (r?.tipo === "Gestión") {
     return `<h4>Resumen</h4><p><strong>Título:</strong> ${raw.titulo || "-"}</p><p><strong>Estado:</strong> ${raw.estado || "-"}</p><p><strong>Fecha fin:</strong> ${raw.fin || "-"}</p><h4>Próxima acción</h4><p>${raw.proximaAccion || "-"}</p><h4>Historial</h4><p>Creado: ${raw.created_at ? formatearCorta(raw.created_at) : "-"}</p>
-    <button class="boton-editar" onclick="if (typeof editarTarea==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarTarea(${raw.id}); mostrarModal(document.getElementById('ModalFormularioTarea'));}">✏️ Editar</button>`;
+    <button class="quickpanel-edit-btn" onclick="if (typeof editarTarea==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarTarea(${raw.id}); mostrarModal(document.getElementById('ModalFormularioTarea'));}">✏️ Editar</button>`;
   }
   if (r?.tipo === "Audiencia") {
     return `<p><strong>Título:</strong> ${raw.titulo || "-"}</p><p><strong>Fecha:</strong> ${raw.fecha || "-"} ${raw.hora || ""}</p><p><strong>Modalidad:</strong> ${raw.modalidad || "-"}</p>
-    <button class="boton-editar" onclick="if (typeof editarAudiencia==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarAudiencia(${raw.id});}">✏️ Editar</button>`;
+    <button class="quickpanel-edit-btn" onclick="if (typeof editarAudiencia==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarAudiencia(${raw.id});}">✏️ Editar</button>`;
   }
   return `<pre>${JSON.stringify(raw, null, 2)}</pre>`;
 }
@@ -604,8 +604,40 @@ function mostrarDetalleEntidad(tipo, data) {
        <p><strong>Creado por:</strong> ${data.creadoPor || "-"}</p>
        <h4>Próxima acción</h4><p>${data.proximaAccion || "-"}</p>
        <h4>Acciones rápidas</h4>
-       <button class="mini-boton" onclick="cambiarVista('hoy')">Ir a hoy</button>
-       <button class="boton-editar" onclick="if (typeof editarTarea==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarTarea(${data.id}); mostrarModal(document.getElementById('ModalFormularioTarea'));}">✏️ Editar</button>`
+       <div class="quick-panel-actions">
+         <button class="mini-boton" onclick="cambiarVista('hoy')">Ir a hoy</button>
+         <button class="quickpanel-edit-btn" onclick="if (typeof editarTarea==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarTarea(${data.id}); mostrarModal(document.getElementById('ModalFormularioTarea'));}">✏️ Editar</button>
+       </div>`
+    );
+    return;
+  }
+  if (tipo === "tarea_dia") {
+    abrirQuickPanel(
+      `Tarea del día: ${data.texto || "Sin título"}`,
+      `<h4>Resumen</h4>
+       <p><strong>Asignados:</strong> ${(data.asignadosA || []).join(", ") || "-"}</p>
+       <p><strong>Prioridad:</strong> ${data.prioridad || "-"}</p>
+       <p><strong>Vence:</strong> ${data.fechaFin || "-"}</p>
+       <p><strong>Próxima acción:</strong> ${data.proximaAccion || "-"}</p>
+       <div class="quick-panel-actions">
+         <button class="mini-boton" onclick="cambiarVista('tareas')">Ir a tareas</button>
+         <button class="quickpanel-edit-btn" onclick="if (typeof abrirEdicionTareaDia==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); abrirEdicionTareaDia(${data.id});}">✏️ Editar</button>
+       </div>`
+    );
+    return;
+  }
+  if (tipo === "tarea_interna") {
+    abrirQuickPanel(
+      `Tarea interna: ${data.texto || "Sin título"}`,
+      `<h4>Resumen</h4>
+       <p><strong>Asignados:</strong> ${(data.asignadosA || []).join(", ") || "-"}</p>
+       <p><strong>Prioridad:</strong> ${data.prioridad || "-"}</p>
+       <p><strong>Vence:</strong> ${data.fechaFin || "-"}</p>
+       <p><strong>Próxima acción:</strong> ${data.proximaAccion || "-"}</p>
+       <div class="quick-panel-actions">
+         <button class="mini-boton" onclick="cambiarVista('internas')">Ir a internas</button>
+         <button class="quickpanel-edit-btn" onclick="if (typeof abrirEdicionTareaInterna==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); abrirEdicionTareaInterna(${data.id});}">✏️ Editar</button>
+       </div>`
     );
     return;
   }
@@ -617,7 +649,7 @@ function mostrarDetalleEntidad(tipo, data) {
        <p><strong>Dirección:</strong> ${data.direccion || "-"}</p>
        <p><strong>RUT:</strong> ${data.rut || "-"}</p>
        <p><strong>Notas:</strong> ${data.confidencial || "-"}</p>
-       <button class="boton-editar" onclick="if (typeof editarCliente==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarCliente(${data.id}); mostrarModal(document.getElementById('modalFormulario'));}">✏️ Editar</button>`
+       <button class="quickpanel-edit-btn" onclick="if (typeof editarCliente==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarCliente(${data.id}); mostrarModal(document.getElementById('modalFormulario'));}">✏️ Editar</button>`
     );
     return;
   }
@@ -628,7 +660,7 @@ function mostrarDetalleEntidad(tipo, data) {
        <p><strong>Modalidad:</strong> ${data.modalidad || "-"}</p>
        <p><strong>Fecha/Hora:</strong> ${data.fecha || "-"} ${data.hora || ""}</p>
        <p><strong>Notas:</strong> ${data.notas || "-"}</p>
-       <button class="boton-editar" onclick="if (typeof editarAudiencia==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarAudiencia(${data.id});}">✏️ Editar</button>`
+       <button class="quickpanel-edit-btn" onclick="if (typeof editarAudiencia==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarAudiencia(${data.id});}">✏️ Editar</button>`
     );
   }
 }
