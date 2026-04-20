@@ -228,6 +228,22 @@ tareaForm.addEventListener("submit", async (e) => {
 
   const ahora = new Date().toISOString();
   const usuario = JSON.parse(localStorage.getItem("usuarioActual") || "{}");
+  const expedientes = JSON.parse(localStorage.getItem("expedientes")) || [];
+  const expedienteSeleccionado = expedientes.find(
+    (x) => x.id === parseInt(document.getElementById("tarea-expediente").value)
+  );
+  const descripcionIngresada = document.getElementById("tarea-descripcion").value.trim();
+  let descripcionPlantilla = descripcionIngresada;
+  if (!descripcionPlantilla) {
+    const textoExp = `${expedienteSeleccionado?.materia || ""} ${expedienteSeleccionado?.tribunal || ""}`.toLowerCase();
+    if (textoExp.includes("familia")) {
+      descripcionPlantilla = "Plantilla Familia: revisar carpeta, preparar escrito, confirmar audiencia y notificar cliente.";
+    } else if (textoExp.includes("laboral") || textoExp.includes("trabajo")) {
+      descripcionPlantilla = "Plantilla Laboral: recopilar antecedentes, preparar estrategia, actualizar cliente y registrar avance.";
+    } else {
+      descripcionPlantilla = "Plantilla General: revisar caso, registrar próximos hitos y coordinar tareas.";
+    }
+  }
   const nuevaTarea = {
     id: editandoTarea ? tareaEditandoId : Date.now(),
     created_at: editandoTarea
@@ -235,7 +251,7 @@ tareaForm.addEventListener("submit", async (e) => {
       : ahora,
     updated_at: ahora,
     titulo: document.getElementById("tarea-titulo").value,
-    descripcion: document.getElementById("tarea-descripcion").value || "no indicado",
+    descripcion: descripcionPlantilla || "no indicado",
     expedienteId: parseInt(document.getElementById("tarea-expediente").value),
     inicio: document.getElementById("tarea-inicio").value,
     fin: document.getElementById("tarea-fin").value,
@@ -417,6 +433,10 @@ function verDetalleTarea(id) {
   const clientes = JSON.parse(localStorage.getItem("clientes")) || [];
   const t = todas.find(t => t.id === id);
   if (!t) return;
+  if (window.mostrarDetalleEntidad) {
+    window.mostrarDetalleEntidad("tarea", t);
+    return;
+  }
 
   const expediente = expedientes.find(e => e.id === t.expedienteId);
   const nombreExp = expediente ? expediente.titulo : "📁 Sin título";

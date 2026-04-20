@@ -430,6 +430,10 @@ function verDetalleCliente(id) {
   const clientes = JSON.parse(localStorage.getItem("clientes")) || [];
   const cliente = clientes.find(c => c.id === id);
   if (!cliente) return;
+  if (window.mostrarDetalleEntidad) {
+    window.mostrarDetalleEntidad("cliente", cliente);
+    return;
+  }
 
   const modal = document.getElementById("modalCliente");
   const modalTexto = document.getElementById("modalTexto");

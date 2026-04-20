@@ -258,10 +258,14 @@ function terminarAudiencia(id) {
   }
 
 function verDetalleAudiencia(id) {
-  if (!modalDetalleAudiencia) return;
   const todas = obtenerAudiencias().concat(obtenerAudienciasArchivadas());
   const a = todas.find(x => x.id === id);
   if (!a) return;
+  if (window.mostrarDetalleEntidad) {
+    window.mostrarDetalleEntidad("audiencia", a);
+    return;
+  }
+  if (!modalDetalleAudiencia) return;
   detalleAudienciaTitulo.textContent = a.titulo;
   detalleAudienciaTipo.textContent = `Tipo: ${a.tipo}`;
   detalleAudienciaModalidad.textContent = `Modalidad: ${a.modalidad}`;

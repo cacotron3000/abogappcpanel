@@ -67,3 +67,88 @@ Para personalizar las cotizaciones en Word crea el archivo `templatepropuesta.do
 
 Cuando se exporta a Word, la aplicación reemplazará cada etiqueta por el valor correspondiente.
 
+
+---
+
+## 🔌 Adaptación para base de datos cPanel (MySQL)
+
+Esta versión incluye una capa de integración para funcionar en hosting cPanel con **PHP + MySQL**, sin Supabase.
+
+### Archivos agregados
+
+- `cpanel.config.js`: configuración activa en frontend (URL del API y API key).
+- `cpanel.config.example.js`: plantilla de referencia.
+- `backend/api.php`: API REST para login, usuarios y sincronización de registros.
+- `backend/config.sample.php`: plantilla de credenciales MySQL y API key.
+- `backend/init.sql`: script para crear tablas `abogapp_records` y `abogapp_users`.
+- `backend/seed_users.sql`: usuarios iniciales solicitados para importar directamente.
+
+### Pasos de configuración
+
+1. **Base de datos en cPanel**
+   - Crea una base MySQL y un usuario con permisos completos.
+   - Ejecuta `backend/init.sql` en phpMyAdmin.
+
+2. **Configurar backend**
+   - Copia `backend/config.sample.php` como `backend/config.php`.
+   - Completa:
+     - `db_host`
+     - `db_name`
+     - `db_user`
+     - `db_pass`
+     - `api_key`
+
+3. **Configurar frontend**
+   - Edita `cpanel.config.js`.
+   - Define:
+     - `API_BASE_URL` (por ejemplo `/backend/api.php` o URL absoluta).
+     - `API_KEY` (la misma del `config.php`).
+
+4. **Usuarios de acceso**
+   - Puedes importar `backend/seed_users.sql`, que incluye los usuarios solicitados y un administrador por defecto.
+   - Administrador por defecto: `admin@gjabogados.cl` / `R@bula04` (recomendado cambiar clave tras primer acceso).
+   - El campo `password_hash` debe ser generado con `password_hash` de PHP.
+
+### Notas técnicas
+
+- La app mantiene los nombres de funciones `supabaseSync`, `supabaseAuth`, `sb` y `sbAdmin` por compatibilidad con el código existente.
+- La sincronización funciona mediante peticiones HTTP; no hay tiempo real por websockets.
+- Los datos de cada módulo (clientes, tareas, expedientes, audiencias, etc.) se guardan como JSON por tabla lógica en `abogapp_records`.
+
+## 🚀 Mejoras de productividad aplicadas
+
+Se incorporaron mejoras rápidas enfocadas en operación diaria:
+
+1. **Bandeja “Hoy”** con resumen de pendientes, vencidas y carga por responsable.
+2. **Atajos de teclado** (`/` buscar, `g` dashboard, `h` hoy, `n` nueva tarea, `c` nuevo cliente).
+3. **Búsqueda global** (clientes, casos, gestiones y audiencias).
+4. **Plantillas automáticas de descripción** al crear tareas según contexto del expediente.
+5. **Panel lateral rápido** para visualizar detalles sin salir del flujo.
+6. **Reglas automáticas** para detectar tareas vencidas y generar aviso.
+7. **Sincronización incremental** por fecha de última actualización.
+8. **Mensajes de login más claros** (muestra error recibido por API).
+9. **Resumen de carga por responsable** en la vista de hoy.
+10. **Notificación automática diaria** de vencimientos detectados.
+
+### Extensiones aplicadas (1 al 9)
+- SLA visual (rojo/amarillo/verde) para prioridades temporales.
+- Calendario semanal resumido en la vista Hoy.
+- Filtros avanzados en búsqueda global (`tipo:`, `asignado:`, `vencida:`, `tag:`).
+- Tablero Kanban resumido por estado.
+- Sugerencia de asignación basada en carga actual.
+- Flujo automático de tareas al crear expediente según materia.
+- Auditoría de cambios (`abogapp_audit`) y consulta reciente por API.
+- Soporte de rol en usuarios (`role`) para RBAC básico.
+- KPI operativos en dashboard.
+
+### Ajustes extra de eficiencia e interfaz
+- Refresco modular por secciones para reducir repintados innecesarios.
+- Carga inicial priorizada (tablas críticas) + sincronización diferida del resto.
+- API con soporte `limit`/`offset` en `pull_table` y `pull_all`.
+- Auditoría filtrable por tabla/actor/rango de fechas.
+- KPI navegables (clic para abrir vistas/filtros).
+- Filtros de la vista Hoy (todos/hoy/vencidas/semana).
+- Búsqueda global con navegación por teclado (↑ ↓ Enter).
+
+### Sistema de detalle sin modales
+Se incorporó un enfoque de **ficha lateral** (`quickPanel`) para mostrar detalles de tareas, clientes y audiencias sin abrir modales superpuestos. Esto reduce interrupciones y permite navegación más fluida.
