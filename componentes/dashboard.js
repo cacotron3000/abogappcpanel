@@ -487,7 +487,9 @@ document.addEventListener("DOMContentLoaded", () => {
         ? Array.from(selectAsignado.selectedOptions).map(o => o.value)
         : [];
       const prioridad = selectPrioridad ? selectPrioridad.value : "";
-      const fechaFin = inputFechaFin ? inputFechaFin.value : "";
+      const fechaFin = inputFechaFin && inputFechaFin.value
+        ? inputFechaFin.value
+        : new Date().toISOString().slice(0, 10);
       const proximaAccion = inputProximaAccion ? inputProximaAccion.value.trim() : "";
       if (!proximaAccion) {
         mostrarNotificacion("La próxima acción es obligatoria", "#FF9800");

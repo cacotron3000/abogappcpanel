@@ -27,6 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if(docxLoader) docxLoader.classList.remove('oculto');
         const datos = Object.fromEntries(new FormData(form).entries());
         const usuario = JSON.parse(localStorage.getItem('usuarioActual') || '{}');
+        if (!datos.fecha) {
+            datos.fecha = new Date().toISOString().slice(0, 10);
+        }
 
         const cotizacion = Array.from({ length: 4 }, (_, i) => ({
             concepto: datos[`concepto${i + 1}`],
@@ -34,22 +37,15 @@ document.addEventListener('DOMContentLoaded', () => {
             variable: datos[`variable${i + 1}`]
         }));
 
-        let numero = 0;
-        try {
-            const { data, error } = await sb
-                .from('cotizaciones')
-                .insert({})
-                .select('id')
-                .single();
-            if (error) throw error;
-            numero = data.id;
-        } catch (err) {
-            console.error('Error storing quotation number', err);
-            const propuestas = JSON.parse(localStorage.getItem('propuestas')) || [];
-            numero = 182 + propuestas.length;
-        }
-
         const propuestas = JSON.parse(localStorage.getItem('propuestas')) || [];
+        const maxHistorico = propuestas.reduce((max, p) => {
+            const n = parseInt(p?.numero, 10);
+            return Number.isFinite(n) ? Math.max(max, n) : max;
+        }, 289);
+        const correlativoGuardado = parseInt(localStorage.getItem('cotizacionCorrelativo') || '289', 10);
+        const base = Math.max(289, maxHistorico, Number.isFinite(correlativoGuardado) ? correlativoGuardado : 289);
+        const numero = base + 1;
+        localStorage.setItem('cotizacionCorrelativo', String(numero));
         const propuesta = { ...datos, cotizacion, numero };
         propuestas.push(propuesta);
         localStorage.setItem('propuestas', JSON.stringify(propuestas));

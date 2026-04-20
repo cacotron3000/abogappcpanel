@@ -177,8 +177,8 @@ if (audienciaForm) {
       titulo: document.getElementById("audienciaTitulo").value.trim(),
       tipo: tipoSelect.value,
       modalidad: modalidadSelect.value,
-      fecha: document.getElementById("audienciaFecha").value,
-      hora: document.getElementById("audienciaHora").value,
+      fecha: document.getElementById("audienciaFecha").value || new Date().toISOString().slice(0, 10),
+      hora: document.getElementById("audienciaHora").value || "09:00",
       notas: document.getElementById("audienciaNotas").value.trim(),
     };
     const audiencias = obtenerAudiencias();

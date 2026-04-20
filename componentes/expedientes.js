@@ -252,7 +252,7 @@ expForm.addEventListener("submit", async (e) => {
     tramite: document.getElementById("exp-tramite").value || "no indicado",
     responsable: document.getElementById("exp-responsable").value.trim() || "Sin asignar",
     etapaProcesal: document.getElementById("exp-etapa-procesal").value.trim() || "Sin etapa",
-    fechaControl: document.getElementById("exp-fecha-control").value || "",
+    fechaControl: document.getElementById("exp-fecha-control").value || new Date().toISOString().slice(0, 10),
     proximaAccion: document.getElementById("exp-proxima-accion").value.trim(),
     creadoPor: editandoExpediente
       ? (JSON.parse(localStorage.getItem("expedientes")) || []).find(e => e.id === expedienteEditandoId)?.creadoPor || usuario.nombre

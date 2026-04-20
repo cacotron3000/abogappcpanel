@@ -254,8 +254,8 @@ tareaForm.addEventListener("submit", async (e) => {
     descripcion: descripcionPlantilla || "no indicado",
     proximaAccion: document.getElementById("tarea-proxima-accion").value.trim(),
     expedienteId: parseInt(document.getElementById("tarea-expediente").value),
-    inicio: document.getElementById("tarea-inicio").value,
-    fin: document.getElementById("tarea-fin").value,
+    inicio: document.getElementById("tarea-inicio").value || new Date().toISOString().slice(0, 10),
+    fin: document.getElementById("tarea-fin").value || new Date().toISOString().slice(0, 10),
     estado: document.getElementById("tarea-estado").value || "no indicado",
     prioridad: document.getElementById("tarea-prioridad").value || "no indicado",
     creadoPor: editandoTarea
