@@ -566,13 +566,16 @@ function obtenerResultadosBusquedaGlobal(termino) {
 function renderQuickPanelResultado(r) {
   const raw = r?.raw || {};
   if (r?.tipo === "Cliente") {
-    return `<p><strong>Nombre:</strong> ${raw.nombre || "-"}</p><p><strong>Correo:</strong> ${raw.correo || "-"}</p><p><strong>Teléfono:</strong> ${raw.telefono || "-"}</p>`;
+    return `<p><strong>Nombre:</strong> ${raw.nombre || "-"}</p><p><strong>Correo:</strong> ${raw.correo || "-"}</p><p><strong>Teléfono:</strong> ${raw.telefono || "-"}</p>
+    <button class="boton-editar" onclick="if (typeof editarCliente==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarCliente(${raw.id}); mostrarModal(document.getElementById('modalFormulario'));}">✏️ Editar</button>`;
   }
   if (r?.tipo === "Gestión") {
-    return `<h4>Resumen</h4><p><strong>Título:</strong> ${raw.titulo || "-"}</p><p><strong>Estado:</strong> ${raw.estado || "-"}</p><p><strong>Fecha fin:</strong> ${raw.fin || "-"}</p><h4>Próxima acción</h4><p>${raw.proximaAccion || "-"}</p><h4>Historial</h4><p>Creado: ${raw.created_at ? formatearCorta(raw.created_at) : "-"}</p>`;
+    return `<h4>Resumen</h4><p><strong>Título:</strong> ${raw.titulo || "-"}</p><p><strong>Estado:</strong> ${raw.estado || "-"}</p><p><strong>Fecha fin:</strong> ${raw.fin || "-"}</p><h4>Próxima acción</h4><p>${raw.proximaAccion || "-"}</p><h4>Historial</h4><p>Creado: ${raw.created_at ? formatearCorta(raw.created_at) : "-"}</p>
+    <button class="boton-editar" onclick="if (typeof editarTarea==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarTarea(${raw.id}); mostrarModal(document.getElementById('ModalFormularioTarea'));}">✏️ Editar</button>`;
   }
   if (r?.tipo === "Audiencia") {
-    return `<p><strong>Título:</strong> ${raw.titulo || "-"}</p><p><strong>Fecha:</strong> ${raw.fecha || "-"} ${raw.hora || ""}</p><p><strong>Modalidad:</strong> ${raw.modalidad || "-"}</p>`;
+    return `<p><strong>Título:</strong> ${raw.titulo || "-"}</p><p><strong>Fecha:</strong> ${raw.fecha || "-"} ${raw.hora || ""}</p><p><strong>Modalidad:</strong> ${raw.modalidad || "-"}</p>
+    <button class="boton-editar" onclick="if (typeof editarAudiencia==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarAudiencia(${raw.id});}">✏️ Editar</button>`;
   }
   return `<pre>${JSON.stringify(raw, null, 2)}</pre>`;
 }
@@ -600,7 +603,9 @@ function mostrarDetalleEntidad(tipo, data) {
        <p><strong>Fin:</strong> ${data.fin || data.fechaFin || "-"}</p>
        <p><strong>Creado por:</strong> ${data.creadoPor || "-"}</p>
        <h4>Próxima acción</h4><p>${data.proximaAccion || "-"}</p>
-       <h4>Acciones rápidas</h4><button class="mini-boton" onclick="cambiarVista('hoy')">Ir a hoy</button>`
+       <h4>Acciones rápidas</h4>
+       <button class="mini-boton" onclick="cambiarVista('hoy')">Ir a hoy</button>
+       <button class="boton-editar" onclick="if (typeof editarTarea==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarTarea(${data.id}); mostrarModal(document.getElementById('ModalFormularioTarea'));}">✏️ Editar</button>`
     );
     return;
   }
@@ -611,7 +616,8 @@ function mostrarDetalleEntidad(tipo, data) {
        <p><strong>Teléfono:</strong> ${data.telefono || "-"}</p>
        <p><strong>Dirección:</strong> ${data.direccion || "-"}</p>
        <p><strong>RUT:</strong> ${data.rut || "-"}</p>
-       <p><strong>Notas:</strong> ${data.confidencial || "-"}</p>`
+       <p><strong>Notas:</strong> ${data.confidencial || "-"}</p>
+       <button class="boton-editar" onclick="if (typeof editarCliente==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarCliente(${data.id}); mostrarModal(document.getElementById('modalFormulario'));}">✏️ Editar</button>`
     );
     return;
   }
@@ -621,7 +627,8 @@ function mostrarDetalleEntidad(tipo, data) {
       `<h4>Resumen</h4><p><strong>Tipo:</strong> ${data.tipo || "-"}</p>
        <p><strong>Modalidad:</strong> ${data.modalidad || "-"}</p>
        <p><strong>Fecha/Hora:</strong> ${data.fecha || "-"} ${data.hora || ""}</p>
-       <p><strong>Notas:</strong> ${data.notas || "-"}</p>`
+       <p><strong>Notas:</strong> ${data.notas || "-"}</p>
+       <button class="boton-editar" onclick="if (typeof editarAudiencia==='function'){document.getElementById('quickPanel')?.classList.add('oculto'); editarAudiencia(${data.id});}">✏️ Editar</button>`
     );
   }
 }
