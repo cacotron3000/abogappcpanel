@@ -213,12 +213,21 @@ function verDetalleTareaDia(id) {
   const t = todas.find(x => x.id === id);
   const modal = document.getElementById("modalDetalleTareaDia");
   if (!t || !modal) return;
+  if (window.mostrarDetalleEntidad) {
+    window.mostrarDetalleEntidad("tarea_dia", t);
+    return;
+  }
   document.getElementById("detalleTareaTitulo").textContent = `📝 ${t.texto}`;
   const nombres = t.asignadosA || (t.asignadoA ? [t.asignadoA] : []);
   const asignado = nombres.length ? nombres.join(", ") : "Sin asignar";
   document.getElementById("detalleTareaAsignado").textContent = `👥 Asignado a: ${asignado}`;
   document.getElementById("detalleTareaFecha").textContent = t.creadoEn ? `📅 Creada: ${new Date(t.creadoEn).toLocaleString()}` : "";
   document.getElementById("detalleTareaVence").textContent = t.fechaFin ? `⏳ Vence: ${formatearCorta(t.fechaFin)}` : "";
+  const proxima = document.getElementById("detalleTareaFecha");
+  if (proxima) {
+    const base = t.creadoEn ? `📅 Creada: ${new Date(t.creadoEn).toLocaleString()}` : "";
+    proxima.textContent = `${base}${t.proximaAccion ? ` · ✅ Próxima acción: ${t.proximaAccion}` : ""}`;
+  }
   renderComentariosTareaDia(t);
   modal.dataset.id = id;
   modal.classList.remove("oculto");
@@ -433,6 +442,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const selectAsignado = document.getElementById("tareaDiaAsignadoA");
   const selectPrioridad = document.getElementById("tareaDiaPrioridad");
   const inputFechaFin = document.getElementById("tareaDiaFechaFin");
+  const inputProximaAccion = document.getElementById("tareaDiaProximaAccion");
   const modalDetalle = document.getElementById("modalDetalleTareaDia");
   const cerrarDetalle = document.getElementById("cerrarModalDetalleTareaDia");
   const btnAgregarComentario = document.getElementById("agregarComentarioTarea");
@@ -446,6 +456,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if(selectAsignado) setSelectValue(selectAsignado, []);
       if(selectPrioridad) setSelectValue(selectPrioridad, "");
       if(inputFechaFin) inputFechaFin.value = "";
+      if(inputProximaAccion) inputProximaAccion.value = "";
       modal.classList.remove("oculto");
     });
   });
@@ -477,6 +488,11 @@ document.addEventListener("DOMContentLoaded", () => {
         : [];
       const prioridad = selectPrioridad ? selectPrioridad.value : "";
       const fechaFin = inputFechaFin ? inputFechaFin.value : "";
+      const proximaAccion = inputProximaAccion ? inputProximaAccion.value.trim() : "";
+      if (!proximaAccion) {
+        mostrarNotificacion("La próxima acción es obligatoria", "#FF9800");
+        return;
+      }
       if(texto){
         const tareas=JSON.parse(localStorage.getItem("tareasDia"))||[];
         if (modal.dataset.editing) {
@@ -487,6 +503,7 @@ document.addEventListener("DOMContentLoaded", () => {
             t.asignadosA = asignadosA;
             t.prioridad = prioridad;
             t.fechaFin = fechaFin;
+            t.proximaAccion = proximaAccion;
             localStorage.setItem("tareasDia",JSON.stringify(tareas));
             if (window.supabaseSync) {
               await supabaseSync.pushRegistro("diario", t);
@@ -494,7 +511,7 @@ document.addEventListener("DOMContentLoaded", () => {
             mostrarNotificacion("Tarea actualizada", "#00E500");
           }
         } else {
-          const nueva={id:Date.now(),texto,asignadosA,prioridad,fechaFin,creadoEn:new Date().toISOString(),comentarios:[]};
+          const nueva={id:Date.now(),texto,asignadosA,prioridad,fechaFin,proximaAccion,creadoEn:new Date().toISOString(),comentarios:[]};
           tareas.push(nueva);
           localStorage.setItem("tareasDia",JSON.stringify(tareas));
           let ok = true;
@@ -524,6 +541,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if(inputFechaFin){
           inputFechaFin.value = "";
+        }
+        if(inputProximaAccion){
+          inputProximaAccion.value = "";
         }
         modal.dataset.editing = "";
         const titulo = modal.querySelector("h3");
@@ -617,10 +637,12 @@ function abrirEdicionTareaDia(id){
   const selectAsignado=document.getElementById("tareaDiaAsignadoA");
   const selectPrioridad=document.getElementById("tareaDiaPrioridad");
   const inputFechaFin=document.getElementById("tareaDiaFechaFin");
+  const inputProximaAccion = document.getElementById("tareaDiaProximaAccion");
   if(texto) texto.value=t.texto;
   if(selectAsignado) setSelectValue(selectAsignado, t.asignadosA || []);
   if(selectPrioridad) setSelectValue(selectPrioridad, t.prioridad || "");
   if(inputFechaFin) inputFechaFin.value = t.fechaFin || "";
+  if (inputProximaAccion) inputProximaAccion.value = t.proximaAccion || "";
   modal.dataset.editing=id;
   const titulo=modal.querySelector("h3");
   if(titulo) titulo.textContent="Editar tarea";
