@@ -361,7 +361,11 @@ function esVencida(fecha, estado = "") {
   return f < hoy;
 }
 
-function obtenerSla(fecha, estado = "") {
+function obtenerSla(fecha, estado = "", urgencia = "") {
+  const u = (urgencia || "").toLowerCase();
+  if (["alta", "urgente"].includes(u)) return "rojo";
+  if (["media", "prioritaria"].includes(u)) return "amarillo";
+  if (["baja", "normal"].includes(u)) return "verde";
   if ((estado || "").toLowerCase().includes("termin")) return "verde";
   const f = normalizarFecha(fecha);
   if (!f) return "verde";
@@ -428,7 +432,8 @@ function renderVistaHoy() {
     fecha: t.fin || "",
     fechaAlt: t.inicio || t.created_at || "",
     asignado: t.asignadoA || "-",
-    estado: t.estado || "-"
+    estado: t.estado || "-",
+    urgencia: t.prioridad || ""
   }));
   tareasDia.forEach((t) => items.push({
     tipo: "Tarea día",
@@ -436,7 +441,8 @@ function renderVistaHoy() {
     fecha: t.fechaFin || "",
     fechaAlt: t.creadoEn || "",
     asignado: (t.asignadosA || []).join(", "),
-    estado: t.prioridad || "-"
+    estado: t.prioridad || "-",
+    urgencia: t.prioridad || ""
   }));
   internas.forEach((t) => items.push({
     tipo: "Interna",
@@ -444,9 +450,10 @@ function renderVistaHoy() {
     fecha: t.fechaFin || "",
     fechaAlt: t.creadoEn || "",
     asignado: (t.asignadosA || []).join(", "),
-    estado: t.prioridad || "-"
+    estado: t.prioridad || "-",
+    urgencia: t.prioridad || ""
   }));
-  audiencias.forEach((a) => items.push({ tipo: "Audiencia", texto: a.titulo || "Sin título", fecha: a.fecha || "", fechaAlt: "", asignado: a.modalidad || "-", estado: a.hora || "-" }));
+  audiencias.forEach((a) => items.push({ tipo: "Audiencia", texto: a.titulo || "Sin título", fecha: a.fecha || "", fechaAlt: "", asignado: a.modalidad || "-", estado: a.hora || "-", urgencia: a.urgencia || "" }));
   const fechaOperativa = (i) => i.fecha || i.fechaAlt || "";
 
   const hoyDate = new Date();
@@ -493,9 +500,9 @@ function renderVistaHoy() {
   const sugerido = Object.entries(carga)
     .filter(([k]) => k !== "Sin asignar")
     .sort((a, b) => a[1] - b[1])[0]?.[0] || "Sin datos";
-  const rojas = items.filter((i) => obtenerSla(i.fecha, i.estado) === "rojo").length;
-  const amarillas = items.filter((i) => obtenerSla(i.fecha, i.estado) === "amarillo").length;
-  const verdes = items.filter((i) => obtenerSla(i.fecha, i.estado) === "verde").length;
+  const rojas = items.filter((i) => obtenerSla(i.fecha, i.estado, i.urgencia) === "rojo").length;
+  const amarillas = items.filter((i) => obtenerSla(i.fecha, i.estado, i.urgencia) === "amarillo").length;
+  const verdes = items.filter((i) => obtenerSla(i.fecha, i.estado, i.urgencia) === "verde").length;
   resumen.innerHTML = `<p><strong>Hoy:</strong> ${deHoy} | <strong>Vencidas:</strong> ${vencidas} | <strong>Total:</strong> ${items.length}</p>`;
   resumen.innerHTML += `<p><strong>SLA:</strong> <span class="hoy-chip rojo">Rojo ${rojas}</span><span class="hoy-chip amarillo">Amarillo ${amarillas}</span><span class="hoy-chip verde">Verde ${verdes}</span></p>`;
   resumen.innerHTML += `<p><strong>Carga por responsable:</strong> ${Object.entries(carga).map(([k,v]) => `${k}: ${v}`).join(" · ") || "-"}</p>`;
@@ -521,7 +528,7 @@ function renderVistaHoy() {
     const div = document.createElement("div");
     div.className = "hoy-item";
     const badge = esVencida(i.fecha, i.estado) ? " ⚠️" : "";
-    const sla = obtenerSla(i.fecha, i.estado);
+    const sla = obtenerSla(i.fecha, i.estado, i.urgencia);
     const fechaVisible = fechaOperativa(i) || "-";
     div.innerHTML = `<strong>[${i.tipo}]</strong> ${i.texto}${badge}<span class="hoy-chip ${sla}">${sla.toUpperCase()}</span><br><small>Fecha: ${fechaVisible} · Responsable: ${i.asignado || "-"} · Estado: ${i.estado || "-"}</small>`;
     lista.appendChild(div);
@@ -543,14 +550,21 @@ function renderVistaHoy() {
 
   if (hoyAuditoria && window.supabaseSync?.fetchAuditRecent) {
     window.supabaseSync.fetchAuditRecent().then((rows) => {
-      const top = (rows || []).slice(0, 5);
+      const relevantes = (rows || []).filter((r) => {
+        const table = (r.table_name || "").toLowerCase();
+        const action = (r.action || "").toLowerCase();
+        const esBorrado = action.includes("delete") && ["tareas", "tareasinternas", "audiencias", "diario"].includes(table);
+        const esCompletado = action.includes("upsert") && ["gestionesarchivadas", "diarioarchivadas", "audienciasarchivadas"].includes(table);
+        return esBorrado || esCompletado;
+      });
+      const top = relevantes.slice(0, 8);
       const agrupada = {};
       top.forEach((r) => {
         const key = r.table_name || "otro";
         agrupada[key] = agrupada[key] || [];
         agrupada[key].push(`[${r.action}] #${r.app_id || "-"} por ${r.actor || "sistema"}`);
       });
-      hoyAuditoria.innerHTML = `<strong>Auditoría reciente:</strong> ${Object.entries(agrupada).map(([k, v]) => `${k}: ${v.join(", ")}`).join(" · ") || "Sin movimientos recientes"}`;
+      hoyAuditoria.innerHTML = `<strong>Auditoría reciente (completadas/borradas):</strong> ${Object.entries(agrupada).map(([k, v]) => `${k}: ${v.join(", ")}`).join(" · ") || "Sin movimientos recientes"}`;
     });
   }
 

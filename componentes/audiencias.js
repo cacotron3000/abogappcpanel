@@ -56,8 +56,12 @@ function crearCardAudiencia(a, archivada = false) {
     diasTexto = `Hace ${d} día${d === 1 ? "" : "s"}`;
   }
   const diasClass = dias >= 0 && dias < 5 ? "urgente" : "";
+  const urg = (a.urgencia || "").toLowerCase();
   let colorClass;
-  if (dias > 10) colorClass = "audiencia-verde";
+  if (urg === "alta") colorClass = "audiencia-roja";
+  else if (urg === "media") colorClass = "audiencia-amarilla";
+  else if (urg === "baja") colorClass = "audiencia-verde";
+  else if (dias > 10) colorClass = "audiencia-verde";
   else if (dias > 5) colorClass = "audiencia-amarilla";
   else colorClass = "audiencia-roja";
   card.classList.add(colorClass);
@@ -143,9 +147,13 @@ if (nuevaAudienciaBtn && modalAudiencia) {
       audienciaForm.reset();
       const tipoSelect = document.getElementById("audienciaTipo");
       const modalidadSelect = document.getElementById("audienciaModalidad");
+      const urgenciaSelect = document.getElementById("audienciaUrgencia");
       if (typeof setSelectValue === "function") {
         setSelectValue(tipoSelect, "");
         setSelectValue(modalidadSelect, "presencial");
+        if (urgenciaSelect) setSelectValue(urgenciaSelect, "media");
+      } else if (urgenciaSelect) {
+        urgenciaSelect.value = "media";
       }
     }
     modalAudiencia.classList.remove("oculto");
@@ -177,6 +185,7 @@ if (audienciaForm) {
       titulo: document.getElementById("audienciaTitulo").value.trim(),
       tipo: tipoSelect.value,
       modalidad: modalidadSelect.value,
+      urgencia: document.getElementById("audienciaUrgencia")?.value || "media",
       fecha: document.getElementById("audienciaFecha").value || new Date().toISOString().slice(0, 10),
       hora: document.getElementById("audienciaHora").value || "09:00",
       notas: document.getElementById("audienciaNotas").value.trim(),
@@ -191,9 +200,13 @@ if (audienciaForm) {
     guardarAudiencias(audiencias);
     if (window.supabaseSync) supabaseSync.pushRegistro("audiencias", datos);
     audienciaForm.reset();
+    const urgenciaSelect = document.getElementById("audienciaUrgencia");
     if (typeof setSelectValue === "function") {
       setSelectValue(tipoSelect, "");
       setSelectValue(modalidadSelect, "presencial");
+      if (urgenciaSelect) setSelectValue(urgenciaSelect, "media");
+    } else if (urgenciaSelect) {
+      urgenciaSelect.value = "media";
     }
     audienciaForm.dataset.editing = "";
     modalAudiencia.classList.add("oculto");
@@ -210,12 +223,15 @@ function editarAudiencia(id) {
   document.getElementById("audienciaTitulo").value = a.titulo;
   const tipoSelect = document.getElementById("audienciaTipo");
   const modalidadSelect = document.getElementById("audienciaModalidad");
+  const urgenciaSelect = document.getElementById("audienciaUrgencia");
   if (typeof setSelectValue === "function") {
     setSelectValue(tipoSelect, a.tipo);
     setSelectValue(modalidadSelect, a.modalidad);
+    setSelectValue(urgenciaSelect, a.urgencia || "media");
   } else {
     tipoSelect.value = a.tipo;
     modalidadSelect.value = a.modalidad;
+    if (urgenciaSelect) urgenciaSelect.value = a.urgencia || "media";
   }
   document.getElementById("audienciaFecha").value = a.fecha;
   document.getElementById("audienciaHora").value = a.hora;
