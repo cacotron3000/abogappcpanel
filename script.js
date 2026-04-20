@@ -31,6 +31,12 @@ const NOMBRES_POR_EMAIL = {
   "ijara@gjabogados.cl": "Ignacio Jara Álvarez",
   "jmgorrono@gjabogados.cl": "José M. Gorroño Vega",
 };
+function esUsuarioAdmin(usuario) {
+  if (!usuario) return false;
+  const rol = (usuario.rol || "").toLowerCase();
+  return Boolean(usuario.esAdmin) || ["admin", "socio"].includes(rol) || usuario.usuario === "admin@gjabogados.cl";
+}
+
 function usuarioKey(base) {
   const u = JSON.parse(localStorage.getItem("usuarioActual") || "null");
   return u ? `${base}_${u.usuario}` : base;
@@ -292,10 +298,7 @@ function actualizarInfoUsuario() {
   const el = document.getElementById("infoUsuario");
   const u = JSON.parse(localStorage.getItem("usuarioActual") || "null");
   if (el && u) {
-    const diff = Date.now() - sessionStart;
-    const m = Math.floor(diff / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
-    el.textContent = `Usuario: ${u.nombre} - ${m}m ${s}s`;
+    el.textContent = `Usuario: ${u.nombre}`;
   }
 }
 
@@ -330,16 +333,341 @@ function reiniciarTemporizador() {
   sessionTimer = setTimeout(expirarSesion, SESSION_TIMEOUT_MS);
 }
 
-function refrescarDatos() {
-  if (typeof cargarClientes === "function") cargarClientes();
-  if (typeof cargarTareasDia === "function") cargarTareasDia();
-  if (typeof cargarTareasDiaArchivadas === "function") cargarTareasDiaArchivadas();
-  if (typeof cargarAudiencias === "function") cargarAudiencias();
-  if (typeof cargarAudienciasArchivadas === "function") cargarAudienciasArchivadas();
-  if (typeof actualizarDashboard === "function") actualizarDashboard();
-  actualizarCentroNotificaciones();
+function refrescarDatos(modulos = ["clientes", "tareasDia", "audiencias", "dashboard", "hoy", "notificaciones"]) {
+  if (modulos.includes("clientes") && typeof cargarClientes === "function") cargarClientes();
+  if (modulos.includes("tareasDia") && typeof cargarTareasDia === "function") cargarTareasDia();
+  if (modulos.includes("tareasDia") && typeof cargarTareasDiaArchivadas === "function") cargarTareasDiaArchivadas();
+  if (modulos.includes("audiencias") && typeof cargarAudiencias === "function") cargarAudiencias();
+  if (modulos.includes("audiencias") && typeof cargarAudienciasArchivadas === "function") cargarAudienciasArchivadas();
+  if (modulos.includes("dashboard") && typeof actualizarDashboard === "function") actualizarDashboard();
+  if (modulos.includes("dashboard")) actualizarKpiResumen();
+  if (modulos.includes("hoy")) renderVistaHoy();
+  if (modulos.includes("notificaciones")) actualizarCentroNotificaciones();
 }
 window.refrescarDatos = refrescarDatos;
+
+function normalizarFecha(fecha) {
+  if (!fecha) return null;
+  const d = typeof fecha === "string" ? parseFechaLocal(fecha) : new Date(fecha);
+  return isNaN(d) ? null : d;
+}
+
+function esVencida(fecha, estado = "") {
+  const f = normalizarFecha(fecha);
+  if (!f) return false;
+  if ((estado || "").toLowerCase().includes("termin")) return false;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  return f < hoy;
+}
+
+function obtenerSla(fecha, estado = "") {
+  if ((estado || "").toLowerCase().includes("termin")) return "verde";
+  const f = normalizarFecha(fecha);
+  if (!f) return "verde";
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const diff = Math.ceil((f - hoy) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return "rojo";
+  if (diff <= 2) return "amarillo";
+  return "verde";
+}
+
+function registrarReglasProductividad() {
+  const hoyKey = new Date().toISOString().slice(0, 10);
+  const marca = `reglas_hoy_${hoyKey}`;
+  if (localStorage.getItem(marca)) return;
+  const tareas = JSON.parse(localStorage.getItem("tareas") || "[]");
+  const tareasDia = JSON.parse(localStorage.getItem("tareasDia") || "[]");
+  const internas = JSON.parse(localStorage.getItem("tareasInternas") || "[]");
+  const universo = [
+    ...tareas.map((t) => ({ ...t, fechaCtrl: t.fin, tituloRef: t.titulo || t.descripcion })),
+    ...tareasDia.map((t) => ({ ...t, fechaCtrl: t.fechaFin, tituloRef: t.texto })),
+    ...internas.map((t) => ({ ...t, fechaCtrl: t.fechaFin, tituloRef: t.texto })),
+  ];
+  const vencidas = universo.filter((t) => esVencida(t.fechaCtrl, t.estado)).length;
+  if (vencidas > 0 && window.registrarNotificacion) {
+    registrarNotificacion(`⚠️ Hay ${vencidas} tareas vencidas por revisar.`, "hoy");
+  }
+  const alertas72 = universo.filter((t) => {
+    const f = normalizarFecha(t.fechaCtrl);
+    if (!f || (t.estado || "").toLowerCase().includes("termin")) return false;
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((f - hoy) / (1000 * 60 * 60 * 24));
+    return diff === 7 || diff === 2;
+  });
+  alertas72.forEach((t) => {
+    const f = normalizarFecha(t.fechaCtrl);
+    const diff = Math.ceil((f - new Date(new Date().setHours(0, 0, 0, 0))) / (1000 * 60 * 60 * 24));
+    registrarNotificacion(`⏰ Recordatorio T-${diff}: "${t.tituloRef || "Sin título"}"`, "hoy");
+  });
+  localStorage.setItem(marca, "1");
+}
+
+let filtroHoy = "todos";
+let filtroResponsableHoy = "";
+function renderVistaHoy() {
+  const lista = document.getElementById("hoyLista");
+  const resumen = document.getElementById("hoyResumenCarga");
+  const calendarioSemanal = document.getElementById("hoyCalendarioSemanal");
+  const hoyKanban = document.getElementById("hoyKanban");
+  const hoyAuditoria = document.getElementById("hoyAuditoria");
+  if (!lista || !resumen) return;
+
+  const tareas = JSON.parse(localStorage.getItem("tareas") || "[]");
+  const tareasDia = JSON.parse(localStorage.getItem("tareasDia") || "[]");
+  const audiencias = JSON.parse(localStorage.getItem("audiencias") || "[]");
+  const internas = JSON.parse(localStorage.getItem("tareasInternas") || "[]");
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const items = [];
+  tareas.forEach((t) => items.push({ tipo: "Gestión", texto: t.titulo || t.descripcion || "Sin título", fecha: t.fin, asignado: t.asignadoA || "-", estado: t.estado || "-" }));
+  tareasDia.forEach((t) => items.push({ tipo: "Tarea día", texto: t.texto || "Sin texto", fecha: t.fechaFin, asignado: (t.asignadosA || []).join(", "), estado: t.prioridad || "-" }));
+  internas.forEach((t) => items.push({ tipo: "Interna", texto: t.texto || "Sin texto", fecha: t.fechaFin, asignado: (t.asignadosA || []).join(", "), estado: t.prioridad || "-" }));
+  audiencias.forEach((a) => items.push({ tipo: "Audiencia", texto: a.titulo || "Sin título", fecha: a.fecha, asignado: a.modalidad || "-", estado: a.hora || "-" }));
+
+  const hoyDate = new Date();
+  const inicioSemana = new Date(hoyDate);
+  inicioSemana.setDate(hoyDate.getDate() - hoyDate.getDay());
+  inicioSemana.setHours(0, 0, 0, 0);
+  const finSemana = new Date(inicioSemana);
+  finSemana.setDate(inicioSemana.getDate() + 7);
+
+  let itemsFiltrados = items;
+  if (filtroHoy === "hoy") {
+    itemsFiltrados = items.filter((i) => i.fecha === hoy);
+  } else if (filtroHoy === "vencidas") {
+    itemsFiltrados = items.filter((i) => esVencida(i.fecha, i.estado));
+  } else if (filtroHoy === "semana") {
+    itemsFiltrados = items.filter((i) => {
+      const f = normalizarFecha(i.fecha);
+      return f && f >= inicioSemana && f < finSemana;
+    });
+  }
+  if (filtroResponsableHoy) {
+    itemsFiltrados = itemsFiltrados.filter((i) => (i.asignado || "").toLowerCase().includes(filtroResponsableHoy.toLowerCase()));
+  }
+
+  items.sort((a, b) => {
+    const fa = a.fecha || "9999-12-31";
+    const fb = b.fecha || "9999-12-31";
+    return fa.localeCompare(fb);
+  });
+
+  const vencidas = items.filter((i) => esVencida(i.fecha, i.estado)).length;
+  const deHoy = items.filter((i) => i.fecha === hoy).length;
+  const carga = {};
+  items.forEach((i) => {
+    const k = i.asignado && i.asignado.trim() ? i.asignado : "Sin asignar";
+    carga[k] = (carga[k] || 0) + 1;
+  });
+  const sugerido = Object.entries(carga)
+    .filter(([k]) => k !== "Sin asignar")
+    .sort((a, b) => a[1] - b[1])[0]?.[0] || "Sin datos";
+  const rojas = items.filter((i) => obtenerSla(i.fecha, i.estado) === "rojo").length;
+  const amarillas = items.filter((i) => obtenerSla(i.fecha, i.estado) === "amarillo").length;
+  const verdes = items.filter((i) => obtenerSla(i.fecha, i.estado) === "verde").length;
+  resumen.innerHTML = `<p><strong>Hoy:</strong> ${deHoy} | <strong>Vencidas:</strong> ${vencidas} | <strong>Total:</strong> ${items.length}</p>`;
+  resumen.innerHTML += `<p><strong>SLA:</strong> <span class="hoy-chip rojo">Rojo ${rojas}</span><span class="hoy-chip amarillo">Amarillo ${amarillas}</span><span class="hoy-chip verde">Verde ${verdes}</span></p>`;
+  resumen.innerHTML += `<p><strong>Carga por responsable:</strong> ${Object.entries(carga).map(([k,v]) => `${k}: ${v}`).join(" · ") || "-"}</p>`;
+  resumen.innerHTML += `<p><strong>Sugerencia próxima asignación:</strong> ${sugerido}</p>`;
+  resumen.innerHTML += `<p><strong>Control semanal:</strong> ${items.filter((i) => {
+    const f = normalizarFecha(i.fecha);
+    return f && f >= inicioSemana && f < finSemana;
+  }).length} hitos en esta semana</p>`;
+
+  if (calendarioSemanal) {
+    const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    const semana = {};
+    items.forEach((i) => {
+      const f = normalizarFecha(i.fecha);
+      const d = f ? dias[f.getDay()] : "Sin fecha";
+      semana[d] = (semana[d] || 0) + 1;
+    });
+    calendarioSemanal.innerHTML = `<strong>Calendario semanal:</strong> ${Object.entries(semana).map(([d, c]) => `${d}: ${c}`).join(" · ") || "-"}`;
+  }
+
+  lista.innerHTML = "";
+  itemsFiltrados.slice(0, 100).forEach((i) => {
+    const div = document.createElement("div");
+    div.className = "hoy-item";
+    const badge = esVencida(i.fecha, i.estado) ? " ⚠️" : "";
+    const sla = obtenerSla(i.fecha, i.estado);
+    div.innerHTML = `<strong>[${i.tipo}]</strong> ${i.texto}${badge}<span class="hoy-chip ${sla}">${sla.toUpperCase()}</span><br><small>Fecha: ${i.fecha || "-"} · Responsable: ${i.asignado || "-"} · Estado: ${i.estado || "-"}</small>`;
+    lista.appendChild(div);
+  });
+
+  if (hoyKanban) {
+    const cols = { pendiente: [], "en curso": [], espera: [], terminado: [] };
+    (JSON.parse(localStorage.getItem("tareas") || "[]")).forEach((t) => {
+      const e = (t.estado || "pendiente").toLowerCase();
+      if (e.includes("termin")) cols.terminado.push(t);
+      else if (e.includes("curso")) cols["en curso"].push(t);
+      else if (e.includes("esper")) cols.espera.push(t);
+      else cols.pendiente.push(t);
+    });
+    hoyKanban.innerHTML = Object.entries(cols).map(([col, arr]) =>
+      `<div class="hoy-kanban-col"><h4>${col} (${arr.length})</h4>${arr.slice(0,6).map((x) => `<div>${x.titulo || x.descripcion || "Sin título"}</div>`).join("")}</div>`
+    ).join("");
+  }
+
+  if (hoyAuditoria && window.supabaseSync?.fetchAuditRecent) {
+    window.supabaseSync.fetchAuditRecent().then((rows) => {
+      const top = (rows || []).slice(0, 5);
+      const agrupada = {};
+      top.forEach((r) => {
+        const key = r.table_name || "otro";
+        agrupada[key] = agrupada[key] || [];
+        agrupada[key].push(`[${r.action}] #${r.app_id || "-"} por ${r.actor || "sistema"}`);
+      });
+      hoyAuditoria.innerHTML = `<strong>Auditoría reciente:</strong> ${Object.entries(agrupada).map(([k, v]) => `${k}: ${v.join(", ")}`).join(" · ") || "Sin movimientos recientes"}`;
+    });
+  }
+
+  registrarReglasProductividad();
+}
+
+function obtenerResultadosBusquedaGlobal(termino) {
+  const q = (termino || "").trim().toLowerCase();
+  if (!q) return [];
+  const filtros = {};
+  q.split(" ").forEach((p) => {
+    if (p.includes(":")) {
+      const [k, v] = p.split(":");
+      filtros[k] = v;
+    }
+  });
+  const fuentes = [
+    { tabla: "clientes", label: "Cliente", campo: (x) => `${x.nombre || ""} ${x.correo || ""}` },
+    { tabla: "expedientes", label: "Caso", campo: (x) => `${x.titulo || ""} ${x.tribunal || ""}` },
+    { tabla: "tareas", label: "Gestión", campo: (x) => `${x.titulo || ""} ${x.descripcion || ""}` },
+    { tabla: "audiencias", label: "Audiencia", campo: (x) => `${x.titulo || ""} ${x.notas || ""}` },
+  ];
+  const out = [];
+  fuentes.forEach((f) => {
+    const datos = JSON.parse(localStorage.getItem(f.tabla) || "[]");
+    datos.forEach((d) => {
+      const txt = f.campo(d);
+      const okTexto = txt.toLowerCase().includes(q.replace(/\\w+:[^\\s]+/g, "").trim());
+      const okTipo = !filtros.tipo || f.label.toLowerCase() === filtros.tipo;
+      const okAsignado = !filtros.asignado || `${d.asignadoA || d.asignadosA || ""}`.toLowerCase().includes(filtros.asignado);
+      const okVencida = !filtros.vencida || (filtros.vencida === "true" ? esVencida(d.fin || d.fecha, d.estado) : true);
+      const tags = Array.isArray(d.tags) ? d.tags.join(",").toLowerCase() : "";
+      const okTag = !filtros.tag || tags.includes(filtros.tag);
+      if (okTexto && okTipo && okAsignado && okVencida && okTag) {
+        out.push({ tipo: f.label, texto: txt.trim() || "(sin texto)", raw: d });
+      }
+    });
+  });
+  return out.slice(0, 15);
+}
+
+function renderQuickPanelResultado(r) {
+  const raw = r?.raw || {};
+  if (r?.tipo === "Cliente") {
+    return `<p><strong>Nombre:</strong> ${raw.nombre || "-"}</p><p><strong>Correo:</strong> ${raw.correo || "-"}</p><p><strong>Teléfono:</strong> ${raw.telefono || "-"}</p>`;
+  }
+  if (r?.tipo === "Gestión") {
+    return `<h4>Resumen</h4><p><strong>Título:</strong> ${raw.titulo || "-"}</p><p><strong>Estado:</strong> ${raw.estado || "-"}</p><p><strong>Fecha fin:</strong> ${raw.fin || "-"}</p><h4>Próxima acción</h4><p>${raw.proximaAccion || "-"}</p><h4>Historial</h4><p>Creado: ${raw.created_at ? formatearCorta(raw.created_at) : "-"}</p>`;
+  }
+  if (r?.tipo === "Audiencia") {
+    return `<p><strong>Título:</strong> ${raw.titulo || "-"}</p><p><strong>Fecha:</strong> ${raw.fecha || "-"} ${raw.hora || ""}</p><p><strong>Modalidad:</strong> ${raw.modalidad || "-"}</p>`;
+  }
+  return `<pre>${JSON.stringify(raw, null, 2)}</pre>`;
+}
+
+function abrirQuickPanel(titulo, contenidoHtml) {
+  const panel = document.getElementById("quickPanel");
+  const t = document.getElementById("quickPanelTitulo");
+  const c = document.getElementById("quickPanelContenido");
+  if (!panel || !t || !c) return;
+  t.textContent = titulo;
+  c.innerHTML = contenidoHtml;
+  panel.classList.remove("oculto");
+}
+
+function mostrarDetalleEntidad(tipo, data) {
+  if (!data) return;
+  if (tipo === "tarea") {
+    abrirQuickPanel(
+      `Detalle tarea: ${data.titulo || data.texto || "Sin título"}`,
+      `<h4>Resumen</h4>
+       <p><strong>Descripción:</strong> ${data.descripcion || "-"}</p>
+       <p><strong>Estado:</strong> ${data.estado || "-"}</p>
+       <p><strong>Prioridad:</strong> ${data.prioridad || "-"}</p>
+       <p><strong>Inicio:</strong> ${data.inicio || "-"}</p>
+       <p><strong>Fin:</strong> ${data.fin || data.fechaFin || "-"}</p>
+       <p><strong>Creado por:</strong> ${data.creadoPor || "-"}</p>
+       <h4>Próxima acción</h4><p>${data.proximaAccion || "-"}</p>
+       <h4>Acciones rápidas</h4><button class="mini-boton" onclick="cambiarVista('hoy')">Ir a hoy</button>`
+    );
+    return;
+  }
+  if (tipo === "cliente") {
+    abrirQuickPanel(
+      `Cliente: ${data.nombre || "Sin nombre"}`,
+      `<h4>Resumen</h4><p><strong>Correo:</strong> ${data.correo || "-"}</p>
+       <p><strong>Teléfono:</strong> ${data.telefono || "-"}</p>
+       <p><strong>Dirección:</strong> ${data.direccion || "-"}</p>
+       <p><strong>RUT:</strong> ${data.rut || "-"}</p>
+       <p><strong>Notas:</strong> ${data.confidencial || "-"}</p>`
+    );
+    return;
+  }
+  if (tipo === "audiencia") {
+    abrirQuickPanel(
+      `Audiencia: ${data.titulo || "Sin título"}`,
+      `<h4>Resumen</h4><p><strong>Tipo:</strong> ${data.tipo || "-"}</p>
+       <p><strong>Modalidad:</strong> ${data.modalidad || "-"}</p>
+       <p><strong>Fecha/Hora:</strong> ${data.fecha || "-"} ${data.hora || ""}</p>
+       <p><strong>Notas:</strong> ${data.notas || "-"}</p>`
+    );
+  }
+}
+window.mostrarDetalleEntidad = mostrarDetalleEntidad;
+
+function actualizarKpiResumen() {
+  const el = document.getElementById("kpiResumen");
+  if (!el) return;
+  const tareasGestion = JSON.parse(localStorage.getItem("tareas") || "[]");
+  const tareasDia = JSON.parse(localStorage.getItem("tareasDia") || "[]");
+  const tareasInternas = JSON.parse(localStorage.getItem("tareasInternas") || "[]");
+  const mapaTareas = new Map();
+  [...tareasGestion, ...tareasDia, ...tareasInternas].forEach((t) => {
+    const key = `${t.id ?? ""}-${t.titulo || t.texto || ""}`;
+    mapaTareas.set(key, t);
+  });
+  const tareas = Array.from(mapaTareas.values());
+  const audiencias = JSON.parse(localStorage.getItem("audiencias") || "[]");
+  const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
+  const vencidas = tareas.filter((t) => esVencida(t.fin || t.fechaFin, t.estado)).length;
+  const terminadas = tareas.filter((t) => (t.estado || "").toLowerCase().includes("termin")).length;
+  el.innerHTML = `
+    <button class="kpi-item" data-kpi="clientes"><strong>Clientes</strong><br>${clientes.length}</button>
+    <button class="kpi-item" data-kpi="tareas"><strong>Tareas activas</strong><br>${tareas.length}</button>
+    <button class="kpi-item" data-kpi="vencidas"><strong>Vencidas</strong><br>${vencidas}</button>
+    <button class="kpi-item" data-kpi="terminadas"><strong>Terminadas</strong><br>${terminadas}</button>
+    <button class="kpi-item" data-kpi="audiencias"><strong>Audiencias</strong><br>${audiencias.length}</button>
+  `;
+  el.querySelectorAll("[data-kpi]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const k = btn.getAttribute("data-kpi");
+      if (k === "vencidas") {
+        filtroHoy = "vencidas";
+        cambiarVista("hoy");
+      } else if (k === "tareas") {
+        cambiarVista("tareas");
+      } else if (k === "audiencias") {
+        cambiarVista("audiencias");
+      } else if (k === "clientes") {
+        cambiarVista("clientes");
+      } else if (k === "terminadas") {
+        abrirQuickPanel("KPI Terminadas", "<p>Usa la vista de tareas archivadas para revisar terminadas.</p>");
+      }
+    });
+  });
+}
 
 // Manejo de capas de modales para permitir abrir un modal sobre otro
 let modalZIndex = 12000;
@@ -410,7 +738,11 @@ function setSelectValue(select, value) {
 
 function cambiarVista(vistaId) {
   const vistaMostrada = document.getElementById(`vista-${vistaId}`);
-  if (!vistaMostrada) return;
+  if (!vistaMostrada) {
+    vistaId = "dashboard";
+  }
+  const vistaFinal = document.getElementById(`vista-${vistaId}`);
+  if (!vistaFinal) return;
 
   // 1) Recargar datos antes de mostrar la sección
   if (vistaId === "clientes" && typeof cargarClientes === "function") {
@@ -423,13 +755,13 @@ function cambiarVista(vistaId) {
   } else if (vistaId === "tareas" && typeof cargarTareasDia === "function") {
     cargarTareasDia();
     cargarTareasDiaArchivadas();
-  } else if (vistaId === "mistareas" && typeof cargarMisTareas === "function") {
-    cargarMisTareas();
   } else if (vistaId === "audiencias" && typeof cargarAudiencias === "function") {
     cargarAudiencias();
     if (typeof mostrarAudienciasProximas === "function") {
       mostrarAudienciasProximas();
     }
+  } else if (vistaId === "hoy") {
+    renderVistaHoy();
   }
 
   // 2) Ocultamos todas las secciones
@@ -438,7 +770,7 @@ function cambiarVista(vistaId) {
   document.querySelectorAll(".tab").forEach(boton => boton.classList.remove("active"));
 
   // 3) Mostramos la sección ya cargada
-  vistaMostrada.classList.remove("oculto");
+  vistaFinal.classList.remove("oculto");
   vistaActual = vistaId;
 
   const botonActivo = document.querySelector(`.tab[data-tab="${vistaId}"]`);
@@ -464,6 +796,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const centroNotif = document.getElementById("centroNotificaciones");
   const limpiarNotif = document.getElementById("limpiarNotificaciones");
   const notifWrapper = document.getElementById("notificacionesWrapper");
+  const busquedaGlobalInput = document.getElementById("busquedaGlobalInput");
+  const busquedaGlobalResultados = document.getElementById("busquedaGlobalResultados");
+  const quickPanel = document.getElementById("quickPanel");
+  const quickPanelCerrar = document.getElementById("quickPanelCerrar");
+  const hoyFiltros = document.querySelectorAll("[data-hoy-filtro]");
+  const hoyResponsableFiltro = document.getElementById("hoyResponsableFiltro");
+  const hoyExportSemanal = document.getElementById("hoyExportSemanal");
   const sidebar = document.querySelector(".sidebar");
   const toggleSidebarBtn = document.getElementById("toggleSidebar");
   if (toggleSidebarBtn && sidebar) {
@@ -519,9 +858,131 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.querySelectorAll("select").forEach(enhanceSelect);
 
   if (window.supabaseSync) {
-    await window.supabaseSync.pullAll();
+    const criticas = ["tareasDia", "audiencias", "notificaciones"];
+    for (const t of criticas) {
+      await window.supabaseSync.pullTabla?.(t);
+    }
+    setTimeout(() => window.supabaseSync.pullAll(), 300);
     window.supabaseSync.subscribeRealtime();
   }
+
+  if (quickPanelCerrar && quickPanel) {
+    quickPanelCerrar.addEventListener("click", () => quickPanel.classList.add("oculto"));
+  }
+
+  if (busquedaGlobalInput && busquedaGlobalResultados) {
+    let idxSeleccionado = -1;
+    const pintarSeleccion = () => {
+      busquedaGlobalResultados.querySelectorAll(".busqueda-item").forEach((it, idx) => {
+        it.style.background = idx === idxSeleccionado ? "#e8f5e9" : "";
+      });
+    };
+    busquedaGlobalInput.addEventListener("input", () => {
+      const resultados = obtenerResultadosBusquedaGlobal(busquedaGlobalInput.value);
+      idxSeleccionado = -1;
+      if (!resultados.length) {
+        busquedaGlobalResultados.classList.add("oculto");
+        busquedaGlobalResultados.innerHTML = "";
+        return;
+      }
+      busquedaGlobalResultados.innerHTML = resultados
+        .map((r, idx) => `<div class="busqueda-item" data-i="${idx}"><strong>${r.tipo}:</strong> ${r.texto}</div>`)
+        .join("");
+      busquedaGlobalResultados.classList.remove("oculto");
+      busquedaGlobalResultados.querySelectorAll(".busqueda-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          const i = parseInt(item.getAttribute("data-i"), 10);
+          const r = resultados[i];
+          abrirQuickPanel(`Resultado: ${r.tipo}`, renderQuickPanelResultado(r));
+          busquedaGlobalResultados.classList.add("oculto");
+        });
+      });
+      const mover = (delta) => {
+        if (busquedaGlobalResultados.classList.contains("oculto")) return;
+        const total = resultados.length;
+        idxSeleccionado = (idxSeleccionado + delta + total) % total;
+        pintarSeleccion();
+      };
+      const keyHandler = (e) => {
+        if (e.key === "ArrowDown") { e.preventDefault(); mover(1); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); mover(-1); }
+        else if (e.key === "Enter" && idxSeleccionado >= 0) {
+          e.preventDefault();
+          abrirQuickPanel(`Resultado: ${resultados[idxSeleccionado].tipo}`, renderQuickPanelResultado(resultados[idxSeleccionado]));
+          busquedaGlobalResultados.classList.add("oculto");
+        }
+      };
+      busquedaGlobalInput.onkeydown = keyHandler;
+    });
+  }
+
+  if (hoyFiltros.length) {
+    hoyFiltros.forEach((b) => {
+      b.addEventListener("click", () => {
+        filtroHoy = b.getAttribute("data-hoy-filtro") || "todos";
+        hoyFiltros.forEach((x) => x.classList.remove("activo"));
+        b.classList.add("activo");
+        renderVistaHoy();
+      });
+    });
+  }
+  if (hoyResponsableFiltro) {
+    const fuentes = [
+      ...(JSON.parse(localStorage.getItem("tareas") || "[]").map((x) => x.asignadoA || "")),
+      ...(JSON.parse(localStorage.getItem("tareasDia") || "[]").flatMap((x) => x.asignadosA || [])),
+      ...(JSON.parse(localStorage.getItem("tareasInternas") || "[]").flatMap((x) => x.asignadosA || [])),
+    ].filter(Boolean);
+    [...new Set(fuentes)].forEach((n) => {
+      const opt = document.createElement("option");
+      opt.value = n;
+      opt.textContent = `Responsable: ${n}`;
+      hoyResponsableFiltro.appendChild(opt);
+    });
+    hoyResponsableFiltro.addEventListener("change", () => {
+      filtroResponsableHoy = hoyResponsableFiltro.value || "";
+      renderVistaHoy();
+    });
+  }
+  if (hoyExportSemanal) {
+    hoyExportSemanal.addEventListener("click", () => {
+      const filas = (JSON.parse(localStorage.getItem("tareas") || "[]"))
+        .map((t) => `${t.titulo || "Sin título"};${t.fin || "-"};${t.estado || "-"};${t.proximaAccion || "-"}`)
+        .join("\n");
+      const blob = new Blob([`titulo;fecha;estado;proxima_accion\n${filas}`], { type: "text/csv;charset=utf-8;" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "control-semanal.csv";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    const tag = (e.target?.tagName || "").toLowerCase();
+    const editando = tag === "input" || tag === "textarea" || e.target?.isContentEditable;
+    if (editando) return;
+    if (e.key === "/") {
+      e.preventDefault();
+      busquedaGlobalInput?.focus();
+      return;
+    }
+    if (e.key.toLowerCase() === "g") {
+      localStorage.setItem("ultimaVista", "dashboard");
+      cambiarVista("dashboard");
+      return;
+    }
+    if (e.key.toLowerCase() === "h") {
+      localStorage.setItem("ultimaVista", "hoy");
+      cambiarVista("hoy");
+      return;
+    }
+    if (e.key.toLowerCase() === "n") {
+      document.getElementById("nuevaTareaDiaBtnDashboard")?.click();
+    }
+    if (e.key.toLowerCase() === "c") {
+      document.getElementById("abrirFormulario")?.click();
+    }
+  });
 
   aplicarConfiguracion();
 
@@ -536,12 +997,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   function mostrarApp() {
     loginDiv.classList.add("oculto");
     appDiv.classList.remove("oculto");
+    document.body.classList.add("app-activa");
     document.body.classList.remove("blurred");
     appDiv.classList.remove("blurred");
     const usuariosBtn = document.getElementById("tabUsuarios");
     if (usuariosBtn) {
       const u = JSON.parse(localStorage.getItem("usuarioActual") || "null");
-      if (u && u.usuario === "admin@gjabogados.cl") {
+      if (esUsuarioAdmin(u)) {
         usuariosBtn.classList.remove("oculto");
       } else {
         usuariosBtn.classList.add("oculto");
@@ -566,23 +1028,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (typeof actualizarDashboard === "function") {
         actualizarDashboard();
       }
-      const modalControlCausas = document.getElementById("modalControlCausas");
-      const diasRecordatorio = [2, 4, 6]; // martes, jueves, sábado
-      const diaActual = new Date().getDay();
-      if (modalControlCausas && diasRecordatorio.includes(diaActual)) {
-        const cerrarRecordatorio = document.getElementById("modalControlCausasCerrar");
-        if (cerrarRecordatorio) {
-          cerrarRecordatorio.addEventListener("click", () => {
-            modalControlCausas.classList.add("oculto");
-          });
-        }
-        modalControlCausas.addEventListener("click", (e) => {
-          if (e.target === modalControlCausas) {
-            modalControlCausas.classList.add("oculto");
-          }
-        });
-        mostrarModal(modalControlCausas);
-      }
     }
 
     let usuarioActual = null;
@@ -593,6 +1038,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       usuario: email,
       nombre:
         NOMBRES_POR_EMAIL[email] || session.user.user_metadata?.nombre || email,
+      esAdmin: Boolean(session.user.is_admin),
+      rol: session.user.role || (session.user.is_admin ? "admin" : "abogado"),
     };
     localStorage.setItem("usuarioActual", JSON.stringify(usuarioActual));
     sessionStart = parseInt(localStorage.getItem("sessionStart") || Date.now());
@@ -600,6 +1047,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     mostrarApp();
   }
   if (!usuarioActual) {
+    document.body.classList.remove("app-activa");
     loginDiv.classList.remove("oculto");
   }
 
@@ -613,7 +1061,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         password: pass,
       });
       if (error || !data.session) {
-        loginError.textContent = "Credenciales incorrectas";
+        loginError.textContent = error?.message || "No se pudo iniciar sesión. Revisa correo, clave o conexión.";
         return;
       }
       const user = data.user;
@@ -623,6 +1071,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           NOMBRES_POR_EMAIL[user.email] ||
           user.user_metadata?.nombre ||
           user.email,
+        esAdmin: Boolean(user.is_admin),
+        rol: user.role || (user.is_admin ? "admin" : "abogado"),
       };
       localStorage.setItem("usuarioActual", JSON.stringify(u));
       sessionStart = Date.now();
