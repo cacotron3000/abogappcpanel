@@ -1,357 +1,375 @@
-const PASSPHRASE = "abogapp";
-const ENCRYPTED_URL =
-  "U2FsdGVkX19STQ8d9snr+yMHPu7oBghWrej6/8KvNTOsbZ7eLsk3mIL7KVZzb3ScKHJ07RagCjQV/BjoCHGhSw==";
-const ENCRYPTED_KEY =
-  "U2FsdGVkX19mDCP/I2fslY5BzA07BNAKyE5LFQ60uEhskm/MAwo06967Far4pkEK67nCOlqlCccHYcnR7GjLtrKGy2VaTX5ZumsUqzk3TcqzKSQuSCciRQCkFt3Kjpj+Wo5ysKiHCLFxay87K8B8poDrorx8I9CwBz46J/r2fm850P8jyOcoU20EGJ7GlTCerW3HuAmDljCeiY2uvQ9rtoPOcF2iwJXKoPV6B3KW1daF9/dxwmQyaLq8KDGHIcxKHEvjxjyETX8SNv6qXkZmBEV/mMA4Jz399Gzibqokyxk7aSsQFml5IH6FLF0TysJe";
-const ENCRYPTED_SERVICE_KEY =
-  "U2FsdGVkX1+/X4D2nGMw1/4w4omMkxmlSU8wMA/L+0P7Ss115NdtNQGWNEHaQONXh4SCwI6rTjc2R4qjIGVjczKlyZK5BTmaX5WwhHI2zr72nJ8a0iFjxp4sRdSa2dO6CAkkb3nT+aRezl8f5WRs+vcjnqk5ABF7t6FQftIY9yDZH3+2Cc9BdL4F4QKUybHI/2NVIYmYAYe3RdXf3MfBYKY2DgGkhX2VciRtop4oQG3dMv+r0f3CPvz4nYGDV5SkBWtBBQ92mJ3y5PwCSNmCgWLaUvDY2lYbom2eUJBNurcwEPddSeT3Y+GkQY+Vzpkg";
-
-const SUPABASE_URL = CryptoJS.AES.decrypt(ENCRYPTED_URL, PASSPHRASE).toString(
-  CryptoJS.enc.Utf8
-);
-const SUPABASE_ANON_KEY = CryptoJS.AES.decrypt(
-  ENCRYPTED_KEY,
-  PASSPHRASE
-).toString(CryptoJS.enc.Utf8);
-const SUPABASE_SERVICE_KEY = CryptoJS.AES.decrypt(
-  ENCRYPTED_SERVICE_KEY,
-  PASSPHRASE
-).toString(CryptoJS.enc.Utf8);
-
-window.sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-window.sbAdmin = supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
-window.sesionExpirada = window.sesionExpirada || false;
-
-const TABLAS = [
-  "clientes",
-  "diario",
-  "diarioarchivadas",
-  "tareasinternas",
-  "comentarios_clientes",
-  "audiencias",
-  "audienciasarchivadas",
-];
-const TABLA_ALIASES = {
-  diario: "tareasDia",
-  diarioarchivadas: "tareasDiaArchivadas",
-  tareasinternas: "tareasInternas",
-  comentarios_clientes: "comentariosClientes",
-  audienciasarchivadas: "audienciasArchivadas",
-};
-
-function localKey(tabla) {
-  return TABLA_ALIASES[tabla] || tabla;
-}
-
-function mapToSupabase(tabla, obj) {
-  const copia = { ...obj, app_id: obj.id };
-  delete copia.id;
-  if (tabla === "comentarios_clientes") {
-    copia.cliente_id = copia.clienteId;
-    delete copia.clienteId;
-  }
-  if (["diario", "diarioarchivadas", "tareasinternas"].includes(tabla)) {
-    if (typeof copia.asignadosA !== "undefined") {
-      copia.asignados = copia.asignadosA;
-      delete copia.asignadosA;
-    }
-    if (typeof copia.fechaFin !== "undefined") {
-      copia.fecha_fin = copia.fechaFin;
-      if (copia.fecha_fin === "") copia.fecha_fin = null;
-      delete copia.fechaFin;
-    }
-    if (typeof copia.creadoEn !== "undefined") {
-      copia.creado_en = copia.creadoEn;
-      delete copia.creadoEn;
-    }
-  }
-  if (typeof copia.creadoPor !== "undefined") {
-    copia.creado_por = copia.creadoPor;
-    delete copia.creadoPor;
-  }
-  if (tabla === "notificaciones" && typeof copia.ts !== "undefined") {
-    copia.created_at = copia.ts;
-    delete copia.ts;
-  }
-  if (typeof copia.archivadoPor !== "undefined") {
-    copia.archivado_por = copia.archivadoPor;
-    delete copia.archivadoPor;
-  }
-  if (typeof copia.archivadoEn !== "undefined") {
-    copia.archivado_en = copia.archivadoEn;
-    delete copia.archivadoEn;
-  }
-  return copia;
-}
-
-function mapFromSupabase(tabla, obj) {
-  const copia = { ...obj, id: obj.app_id };
-  delete copia.app_id;
-  if (tabla === "comentarios_clientes") {
-    copia.clienteId = copia.cliente_id;
-    delete copia.cliente_id;
-  }
-  if (["diario", "diarioarchivadas", "tareasinternas"].includes(tabla)) {
-    if (typeof copia.asignados !== "undefined") {
-      copia.asignadosA = copia.asignados;
-      delete copia.asignados;
-    }
-    if (typeof copia.fecha_fin !== "undefined") {
-      copia.fechaFin = copia.fecha_fin;
-      delete copia.fecha_fin;
-    }
-    if (typeof copia.creado_en !== "undefined") {
-      copia.creadoEn = copia.creado_en;
-      delete copia.creado_en;
-    }
-  }
-  if (typeof copia.creado_por !== "undefined") {
-    copia.creadoPor = copia.creado_por;
-    delete copia.creado_por;
-  }
-  if (tabla === "notificaciones" && typeof copia.created_at !== "undefined") {
-    copia.ts = copia.created_at;
-    delete copia.created_at;
-  }
-  if (typeof copia.archivado_por !== "undefined") {
-    copia.archivadoPor = copia.archivado_por;
-    delete copia.archivado_por;
-  }
-  if (typeof copia.archivado_en !== "undefined") {
-    copia.archivadoEn = copia.archivado_en;
-    delete copia.archivado_en;
-  }
-  return copia;
-}
-
-async function pullTabla(tabla) {
-  const { data, error } = await sb.from(tabla).select();
-  if (!error && Array.isArray(data)) {
-    const mapeados = data.map((r) => mapFromSupabase(tabla, r));
-    localStorage.setItem(localKey(tabla), JSON.stringify(mapeados));
-  }
-}
-
-async function pullAll() {
-  for (const t of TABLAS) {
-    await pullTabla(t);
-  }
-}
-
-function triggerBackgroundRefresh() {
-  if (window.refrescarDatos) {
-    setTimeout(() => window.refrescarDatos(), 0);
-  }
-}
-
-async function pushTabla(tabla) {
-  if (window.sesionExpirada) {
-    console.warn("Sesión expirada. No se sincroniza la tabla " + tabla);
-    if (window.mostrarAlertaModal) {
-      window.mostrarAlertaModal(
-        "⚠️ Los cambios no se guardaron porque la sesión expiró."
-      );
-    }
-    return false;
-  }
-  const lista = JSON.parse(localStorage.getItem(localKey(tabla))) || [];
-  const registros = lista.map((r) => mapToSupabase(tabla, r));
-  try {
-    await sb
-      .from(tabla)
-      .upsert(registros, { onConflict: "app_id" })
-      .throwOnError();
-    triggerBackgroundRefresh();
-    return true;
-  } catch (error) {
-    console.error("Error al escribir en " + tabla, error);
-    // Se omite mensaje de modal de error
-    return false;
-  }
-}
-
-async function pushRegistro(tabla, registro) {
-  if (window.sesionExpirada) {
-    console.warn("Sesión expirada. No se envía registro a " + tabla);
-    if (window.mostrarAlertaModal) {
-      window.mostrarAlertaModal(
-        "⚠️ Los cambios no se guardaron porque la sesión expiró."
-      );
-    }
-    return false;
-  }
-  const reg = mapToSupabase(tabla, registro);
-  try {
-    await sb
-      .from(tabla)
-      .upsert(reg, { onConflict: "app_id" })
-      .throwOnError();
-    triggerBackgroundRefresh();
-    return true;
-  } catch (error) {
-    console.error("Error al escribir en " + tabla, error);
-    // Se omite mensaje de modal de error
-    return false;
-  }
-}
-
-async function deleteRegistro(tabla, id) {
-  if (window.sesionExpirada) {
-    console.warn("Sesión expirada. No se elimina registro en " + tabla);
-    if (window.mostrarAlertaModal) {
-      window.mostrarAlertaModal(
-        "⚠️ Los cambios no se guardaron porque la sesión expiró."
-      );
-    }
-    return;
-  }
-  try {
-    await sb.from(tabla).delete().eq("app_id", id).throwOnError();
-    triggerBackgroundRefresh();
-  } catch (error) {
-    console.error("Error al eliminar en " + tabla, error);
-    // Se omite mensaje de modal de error
-  }
-}
-
-function handleRealtimeChange(tabla, payload) {
-  if (!window.registrarNotificacion) return;
-  const usuario = JSON.parse(localStorage.getItem("usuarioActual") || "null");
-  if (!usuario) return;
-  if (tabla === "notificaciones") {
-    const n = mapFromSupabase("notificaciones", payload.new);
-    if (n.creadoPor === usuario.nombre) return;
-    if (window.recibirNotificacionSupabase) {
-      window.recibirNotificacionSupabase(n);
-    }
-    return;
-  }
-  const data = payload.new || payload.old || {};
-  const actor = data.creado_por || data.archivado_por || "Otro usuario";
-  if (actor === usuario.nombre) return;
-  const nombre = data.nombre || data.titulo || data.texto || "registro";
-  let accion;
-  if (payload.eventType === "INSERT") {
-    accion = tabla.includes("archivadas") ? "archivado" : "creado";
-  } else if (payload.eventType === "UPDATE") {
-    accion = "modificado";
-  } else if (payload.eventType === "DELETE") {
-    accion = "eliminado";
-  }
-  const destinos = {
-    clientes: "clientes",
-    comentarios_clientes: "clientes",
-    diario: "dashboard",
-    diarioarchivadas: "dashboard",
-    tareasinternas: "tareasInternas",
-    audiencias: "audiencias",
-    audienciasarchivadas: "audiencias",
+(function () {
+  const DEFAULT_CONFIG = {
+    API_BASE_URL: "/backend/api.php",
+    API_KEY: "REEMPLAZAR_CON_API_KEY",
   };
-  const destino = destinos[tabla] || "dashboard";
-  if (accion) {
-    registrarNotificacion(`${nombre} ${accion} por ${actor}`, destino);
+
+  const cfg = Object.assign({}, DEFAULT_CONFIG, window.CPANEL_CONFIG || {});
+
+  const TABLAS = [
+    "clientes",
+    "expedientes",
+    "casosarchivados",
+    "tareas",
+    "gestionesarchivadas",
+    "diario",
+    "diarioarchivadas",
+    "tareasinternas",
+    "comentarios_clientes",
+    "comentarios_expedientes",
+    "comentarios_tareas",
+    "audiencias",
+    "audienciasarchivadas",
+    "notificaciones",
+  ];
+
+  const TABLA_ALIASES = {
+    diario: "tareasDia",
+    diarioarchivadas: "tareasDiaArchivadas",
+    tareasinternas: "tareasInternas",
+    comentarios_clientes: "comentariosClientes",
+    comentarios_expedientes: "comentariosExpedientes",
+    comentarios_tareas: "comentariosTareas",
+    audienciasarchivadas: "audienciasArchivadas",
+  };
+
+  function localKey(tabla) {
+    return TABLA_ALIASES[tabla] || tabla;
   }
-}
 
-function subscribeRealtime() {
-  TABLAS.forEach((tabla) => {
-    sb.channel(`realtime-${tabla}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: tabla },
-        (payload) => {
-          pullTabla(tabla);
-          handleRealtimeChange(tabla, payload);
-          triggerBackgroundRefresh();
-        }
-      )
-      .subscribe();
-  });
-}
-
-async function pushNotificacion(notificacion) {
-  return pushRegistro("notificaciones", notificacion);
-}
-
-async function fetchNotificaciones() {
-  const { data, error } = await sb
-    .from("notificaciones")
-    .select()
-    .order("id", { ascending: false });
-  if (error) return [];
-  return data.map((r) => mapFromSupabase("notificaciones", r));
-}
-
-function subscribeNotificaciones() {
-  sb.channel("realtime-notificaciones")
-    .on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "notificaciones" },
-      (payload) => {
-        const n = mapFromSupabase("notificaciones", payload.new);
-        if (window.recibirNotificacionSupabase) {
-          window.recibirNotificacionSupabase(n);
-        }
+  async function apiRequest(action, { method = "GET", query = {}, body = null } = {}) {
+    const url = new URL(cfg.API_BASE_URL, window.location.origin);
+    url.searchParams.set("action", action);
+    Object.entries(query).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) {
+        url.searchParams.set(k, String(v));
       }
-    )
-    .subscribe();
-}
+    });
 
-async function guardarTema(usuario, tema) {
-  if (!usuario) return false;
-  try {
-    await sb
-      .from("temas_usuarios")
-      .upsert({ usuario, tema }, { onConflict: "usuario" })
-      .throwOnError();
-    return true;
-  } catch (e) {
-    console.error("Error guardando tema", e);
-    return false;
+    const headers = {
+      "X-API-Key": cfg.API_KEY,
+      Accept: "application/json",
+    };
+    const actor = JSON.parse(localStorage.getItem("usuarioActual") || "null")?.usuario;
+    if (actor) headers["X-Actor"] = actor;
+
+    const options = { method, headers };
+    if (body !== null) {
+      headers["Content-Type"] = "application/json";
+      options.body = JSON.stringify(body);
+    }
+
+    const res = await fetch(url.toString(), options);
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.error) {
+      throw new Error(json.error || `Error ${res.status}`);
+    }
+    return json;
   }
-}
 
-async function obtenerTema(usuario) {
-  if (!usuario) return null;
-  const { data, error } = await sb
-    .from("temas_usuarios")
-    .select("tema")
-    .eq("usuario", usuario)
-    .single();
-  if (error || !data) return null;
-  return data.tema;
-}
+  async function pullTabla(tabla) {
+    try {
+      const since = localStorage.getItem(`sync_since_${tabla}`) || "";
+      const { data } = await apiRequest("pull_table", { query: { table: tabla, since, limit: 1500, offset: 0 } });
+      if (Array.isArray(data)) {
+        const actual = JSON.parse(localStorage.getItem(localKey(tabla)) || "[]");
+        const mapa = new Map(actual.map((x) => [x.id, x]));
+        data.forEach((row) => mapa.set(row.id, row));
+        localStorage.setItem(localKey(tabla), JSON.stringify(Array.from(mapa.values())));
+        localStorage.setItem(`sync_since_${tabla}`, new Date().toISOString());
+      }
+    } catch (error) {
+      console.error(`Error al descargar ${tabla}:`, error);
+    }
+  }
 
-window.supabaseSync = {
-  pullAll,
-  pushTabla,
-  pushRegistro,
-  deleteRegistro,
-  subscribeRealtime,
-  pushNotificacion,
-  fetchNotificaciones,
-  subscribeNotificaciones,
-  guardarTema,
-  obtenerTema,
-};
+  async function pullAll() {
+    try {
+      const since = localStorage.getItem("sync_since_all") || "";
+      const { data } = await apiRequest("pull_all", {
+        query: { tables: TABLAS.join(","), since, limit: 1500, offset: 0 },
+      });
+      TABLAS.forEach((tabla) => {
+        if (Array.isArray(data?.[tabla])) {
+          const actual = JSON.parse(localStorage.getItem(localKey(tabla)) || "[]");
+          const mapa = new Map(actual.map((x) => [x.id, x]));
+          data[tabla].forEach((row) => mapa.set(row.id, row));
+          localStorage.setItem(localKey(tabla), JSON.stringify(Array.from(mapa.values())));
+        }
+      });
+      localStorage.setItem("sync_since_all", new Date().toISOString());
+    } catch (error) {
+      console.error("Error en pullAll:", error);
+    }
+  }
 
-async function fetchUserEmails() {
-  if (!window.sbAdmin || !sbAdmin.auth || !sbAdmin.auth.admin) return [];
-  const { data, error } = await sbAdmin.auth.admin.listUsers();
-  if (error || !data || !data.users) return [];
-  return data.users.map((u) => u.email);
-}
+  function triggerBackgroundRefresh() {
+    if (window.refrescarDatos) {
+      setTimeout(() => window.refrescarDatos(), 0);
+    }
+  }
 
-async function fetchUsers() {
-  if (!window.sbAdmin || !sbAdmin.auth || !sbAdmin.auth.admin) return [];
-  const { data, error } = await sbAdmin.auth.admin.listUsers();
-  if (error || !data || !data.users) return [];
-  return data.users.map((u) => ({ email: u.email, nombre: u.user_metadata?.nombre || "" }));
-}
+  function setSyncStatus(state, text = "") {
+    if (typeof window.updateSyncStatus === "function") {
+      window.updateSyncStatus(state, text);
+    }
+  }
 
-window.supabaseAuth = {
-  fetchUserEmails,
-  fetchUsers,
-};
+  async function pushTabla(tabla) {
+    if (window.sesionExpirada) return false;
+    const lista = JSON.parse(localStorage.getItem(localKey(tabla)) || "[]");
+    try {
+      setSyncStatus("syncing");
+      await apiRequest("upsert", {
+        method: "POST",
+        body: { table: tabla, records: lista },
+      });
+      triggerBackgroundRefresh();
+      setSyncStatus("ok");
+      return true;
+    } catch (error) {
+      console.error(`Error al guardar ${tabla}:`, error);
+      setSyncStatus("error");
+      return false;
+    }
+  }
+
+  async function pushRegistro(tabla, registro) {
+    if (window.sesionExpirada) return false;
+    try {
+      setSyncStatus("syncing");
+      await apiRequest("upsert", {
+        method: "POST",
+        body: { table: tabla, records: [registro] },
+      });
+      triggerBackgroundRefresh();
+      setSyncStatus("ok");
+      return true;
+    } catch (error) {
+      console.error(`Error al guardar registro en ${tabla}:`, error);
+      setSyncStatus("error");
+      return false;
+    }
+  }
+
+  async function deleteRegistro(tabla, id) {
+    if (window.sesionExpirada) return false;
+    try {
+      setSyncStatus("syncing");
+      await apiRequest("delete", {
+        method: "POST",
+        body: { table: tabla, id },
+      });
+      triggerBackgroundRefresh();
+      setSyncStatus("ok");
+      return true;
+    } catch (error) {
+      console.error(`Error al eliminar en ${tabla}:`, error);
+      setSyncStatus("error");
+      return false;
+    }
+  }
+
+  function subscribeRealtime() {
+    // cPanel/MySQL no expone realtime por defecto; se usa sincronización manual.
+  }
+
+  async function pushNotificacion(notificacion) {
+    return pushRegistro("notificaciones", notificacion);
+  }
+
+  async function fetchNotificaciones() {
+    try {
+      const { data } = await apiRequest("pull_table", {
+        query: { table: "notificaciones" },
+      });
+      if (!Array.isArray(data)) return [];
+      return [...data].sort((a, b) => (b.id || 0) - (a.id || 0));
+    } catch (error) {
+      console.error("Error al obtener notificaciones:", error);
+      return [];
+    }
+  }
+
+  function subscribeNotificaciones() {
+    // Sin realtime en esta integración.
+  }
+
+  async function guardarTema(usuario, tema) {
+    if (!usuario) return false;
+    return pushRegistro("temas_usuarios", { id: Date.now(), usuario, tema });
+  }
+
+  async function obtenerTema(usuario) {
+    if (!usuario) return null;
+    try {
+      const { data } = await apiRequest("pull_table", { query: { table: "temas_usuarios" } });
+      const fila = Array.isArray(data) ? data.find((r) => r.usuario === usuario) : null;
+      return fila?.tema || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  window.supabaseSync = {
+    pullTabla,
+    pullAll,
+    pushTabla,
+    pushRegistro,
+    deleteRegistro,
+    subscribeRealtime,
+    pushNotificacion,
+    fetchNotificaciones,
+    subscribeNotificaciones,
+    guardarTema,
+    obtenerTema,
+    async fetchAuditRecent(limit = 50) {
+      try {
+        const { data } = await apiRequest("audit_recent", { query: { limit } });
+        return Array.isArray(data) ? data : [];
+      } catch (e) {
+        return [];
+      }
+    },
+    async nextQuoteNumber(min = 290) {
+      const { data } = await apiRequest("next_quote_number", {
+        method: "POST",
+        body: { min },
+      });
+      return Number(data?.numero || 0);
+    },
+  };
+
+  async function fetchUsersList() {
+    const { data } = await apiRequest("users_list");
+    return data?.users || [];
+  }
+
+  window.supabaseAuth = {
+    async fetchUserEmails() {
+      const users = await fetchUsersList();
+      return users.map((u) => u.email).filter(Boolean);
+    },
+    async fetchUsers() {
+      const users = await fetchUsersList();
+      return users.map((u) => ({ email: u.email, nombre: u.user_metadata?.nombre || "" }));
+    },
+  };
+
+  const sessionKey = "cpanelSession";
+
+  window.sb = {
+    auth: {
+      async getSession() {
+        const saved = localStorage.getItem(sessionKey);
+        const session = saved ? JSON.parse(saved) : null;
+        return { data: { session } };
+      },
+
+      async signInWithPassword({ email, password }) {
+        try {
+          const { data } = await apiRequest("login", {
+            method: "POST",
+            body: { email, password },
+          });
+          const session = {
+            access_token: data?.session?.access_token || "local-token",
+            user: data?.user,
+          };
+          localStorage.setItem(sessionKey, JSON.stringify(session));
+          return { data: { session, user: data?.user }, error: null };
+        } catch (error) {
+          return { data: null, error };
+        }
+      },
+
+      async signOut() {
+        localStorage.removeItem(sessionKey);
+        return { error: null };
+      },
+    },
+  };
+
+  function mapUserForClient(user) {
+    return {
+      id: user.id,
+      email: user.email,
+      user_metadata: user.user_metadata || { nombre: "" },
+      role: user.role || (user.is_admin ? "admin" : "abogado"),
+    };
+  }
+
+  window.sbAdmin = {
+    auth: {
+      admin: {
+        async listUsers() {
+          try {
+            const users = await fetchUsersList();
+            return { data: { users: users.map(mapUserForClient) }, error: null };
+          } catch (error) {
+            return { data: null, error };
+          }
+        },
+
+        async getUserById(id) {
+          try {
+            const { data } = await apiRequest("users_get", {
+              method: "POST",
+              body: { id },
+            });
+            return { data: { user: mapUserForClient(data.user) }, error: null };
+          } catch (error) {
+            return { data: null, error };
+          }
+        },
+
+        async deleteUser(id) {
+          try {
+            await apiRequest("users_delete", {
+              method: "POST",
+              body: { id },
+            });
+            return { data: { id }, error: null };
+          } catch (error) {
+            return { data: null, error };
+          }
+        },
+
+        async updateUserById(id, updates) {
+          try {
+            await apiRequest("users_update", {
+              method: "POST",
+              body: {
+                id,
+                email: updates.email,
+                nombre: updates.user_metadata?.nombre,
+                password: updates.password,
+                role: updates.role,
+              },
+            });
+            return { data: { id }, error: null };
+          } catch (error) {
+            return { data: null, error };
+          }
+        },
+
+        async createUser({ email, password, user_metadata }) {
+          try {
+            const { data } = await apiRequest("users_create", {
+              method: "POST",
+              body: {
+                email,
+                password,
+                nombre: user_metadata?.nombre || email,
+                role: user_metadata?.role,
+              },
+            });
+            return { data: { user: { id: data.id, email, user_metadata } }, error: null };
+          } catch (error) {
+            return { data: null, error };
+          }
+        },
+      },
+    },
+  };
+})();
