@@ -998,12 +998,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
   if (hoyResponsableFiltro) {
-    const fuentes = [
-      ...(JSON.parse(localStorage.getItem("tareas") || "[]").map((x) => x.asignadoA || "")),
-      ...(JSON.parse(localStorage.getItem("tareasDia") || "[]").flatMap((x) => x.asignadosA || [])),
-      ...(JSON.parse(localStorage.getItem("tareasInternas") || "[]").flatMap((x) => x.asignadosA || [])),
-    ].filter(Boolean);
-    [...new Set(fuentes)].forEach((n) => {
+    while (hoyResponsableFiltro.options.length > 1) {
+      hoyResponsableFiltro.remove(1);
+    }
+    const nombresEquipo = new Set();
+    if (window.supabaseAuth?.fetchUsers) {
+      try {
+        const users = await window.supabaseAuth.fetchUsers();
+        (users || [])
+          .filter((u) => u.email !== "admin@gjabogados.cl")
+          .forEach((u) => nombresEquipo.add(u.nombre || u.email));
+      } catch (_) {
+        // fallback a fuentes locales si falla API de usuarios
+      }
+    }
+    if (!nombresEquipo.size) {
+      const fuentesLocales = [
+        ...(JSON.parse(localStorage.getItem("tareas") || "[]").map((x) => x.asignadoA || "")),
+        ...(JSON.parse(localStorage.getItem("tareasDia") || "[]").flatMap((x) => x.asignadosA || [])),
+        ...(JSON.parse(localStorage.getItem("tareasInternas") || "[]").flatMap((x) => x.asignadosA || [])),
+      ].filter(Boolean);
+      fuentesLocales.forEach((n) => nombresEquipo.add(n));
+    }
+    [...nombresEquipo].sort((a, b) => a.localeCompare(b, "es")).forEach((n) => {
       const opt = document.createElement("option");
       opt.value = n;
       opt.textContent = `Responsable: ${n}`;
