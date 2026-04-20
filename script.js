@@ -876,6 +876,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   const hoyExportSemanal = document.getElementById("hoyExportSemanal");
   const sidebar = document.querySelector(".sidebar");
   const toggleSidebarBtn = document.getElementById("toggleSidebar");
+  if (busquedaGlobalInput) {
+    busquedaGlobalInput.value = "";
+    busquedaGlobalInput.setAttribute("autocomplete", "off");
+    busquedaGlobalInput.setAttribute("data-lpignore", "true");
+  }
   if (toggleSidebarBtn && sidebar) {
     toggleSidebarBtn.addEventListener("click", () => {
       sidebar.classList.toggle("collapsed");
