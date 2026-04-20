@@ -45,6 +45,7 @@
       <div class="header-principal-info">
         <div id="fechaChile" class="fecha-chile"></div>
         <div id="infoUsuario" class="usuario-info"></div>
+        <div id="syncStatus" class="sync-status" title="Estado de sincronización">● Sincronizando</div>
         <div class="header-busqueda-global">
           <span class="search-icon"><i class="fa-sharp fa-solid fa-magnifying-glass"></i></span>
           <input type="search" id="busquedaGlobalInput" name="global_search" placeholder="Buscar en toda la app..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
@@ -758,27 +759,9 @@
         <h3>Cotización</h3>
         <table>
             <tr><th>Concepto</th><th>Fijo</th><th>Variable</th></tr>
-            <tr>
-                <td><input type="text" name="concepto1" placeholder="Concepto 1"></td>
-                <td><input type="text" name="fijo1" class="fijo"></td>
-                <td><input type="text" name="variable1"></td>
-            </tr>
-            <tr>
-                <td><input type="text" name="concepto2" placeholder="Concepto 2"></td>
-                <td><input type="text" name="fijo2" class="fijo"></td>
-                <td><input type="text" name="variable2"></td>
-            </tr>
-            <tr>
-                <td><input type="text" name="concepto3" placeholder="Concepto 3"></td>
-                <td><input type="text" name="fijo3" class="fijo"></td>
-                <td><input type="text" name="variable3"></td>
-            </tr>
-            <tr>
-                <td><input type="text" name="concepto4" placeholder="Concepto 4"></td>
-                <td><input type="text" name="fijo4" class="fijo"></td>
-                <td><input type="text" name="variable4"></td>
-            </tr>
+            <tbody id="cotizacionRows"></tbody>
         </table>
+        <button type="button" id="agregarFilaCotizacion" class="mini-boton">+ Agregar fila</button>
 
         <button type="submit" class="boton" id="btnGenerarDocx">Generar .docx</button>
         <div id="docxLoader" class="docx-loader oculto"></div>

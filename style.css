@@ -188,6 +188,18 @@ h1, h2, h3 {
   white-space: nowrap;
 }
 
+.sync-status {
+  font-size: 0.78rem;
+  color: #64748b;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+}
+
+.sync-status.ok { color: #2e7d32; border-color: #81c784; }
+.sync-status.syncing { color: #b26a00; border-color: #ffd54f; }
+.sync-status.error { color: #c62828; border-color: #ef9a9a; }
+
 /* Botón para abrir el centro de notificaciones */
 .boton-notificaciones {
   position: relative;

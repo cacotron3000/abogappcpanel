@@ -5,20 +5,66 @@ document.addEventListener('DOMContentLoaded', () => {
     if(!form) return;
     const submitBtn = form.querySelector('#btnGenerarDocx');
     const docxLoader = document.getElementById('docxLoader');
-    const fijoInputs = form.querySelectorAll('input.fijo');
+    const rowsBody = document.getElementById('cotizacionRows');
+    const addRowBtn = document.getElementById('agregarFilaCotizacion');
     const formatPeso = (v) => {
         const num = parseInt((v || '').replace(/\D/g, '')); 
         if (isNaN(num)) return '';
         return '$' + num.toLocaleString('es-CL') + '.-';
     };
-    fijoInputs.forEach(inp => {
-        inp.addEventListener('blur', () => {
-            inp.value = formatPeso(inp.value);
+    const buildRow = (idx, data = {}) => {
+        const tr = document.createElement('tr');
+        tr.className = 'cot-row';
+        tr.dataset.idx = String(idx);
+        tr.innerHTML = `
+          <td><input type="text" name="concepto${idx}" placeholder="Concepto ${idx}" value="${data.concepto || ''}"></td>
+          <td><input type="text" name="fijo${idx}" class="fijo" value="${data.fijo || ''}"></td>
+          <td><input type="text" name="variable${idx}" value="${data.variable || ''}"></td>
+          <td><button type="button" class="mini-boton cot-remove">🗑</button></td>
+        `;
+        return tr;
+    };
+
+    const renumerarRows = () => {
+        if (!rowsBody) return;
+        Array.from(rowsBody.querySelectorAll('tr.cot-row')).forEach((tr, i) => {
+            const idx = i + 1;
+            tr.dataset.idx = String(idx);
+            tr.querySelector('input[name^="concepto"]').setAttribute('name', `concepto${idx}`);
+            tr.querySelector('input[name^="concepto"]').setAttribute('placeholder', `Concepto ${idx}`);
+            tr.querySelector('input[name^="fijo"]').setAttribute('name', `fijo${idx}`);
+            tr.querySelector('input[name^="variable"]').setAttribute('name', `variable${idx}`);
         });
-        inp.addEventListener('focus', () => {
-            inp.value = inp.value.replace(/[^0-9]/g,'');
+    };
+
+    if (rowsBody) {
+        rowsBody.innerHTML = '';
+        rowsBody.appendChild(buildRow(1));
+        rowsBody.addEventListener('click', (e) => {
+            const btn = e.target.closest('.cot-remove');
+            if (!btn) return;
+            const all = rowsBody.querySelectorAll('tr.cot-row');
+            if (all.length <= 1) return;
+            btn.closest('tr')?.remove();
+            renumerarRows();
         });
-    });
+    }
+    if (addRowBtn && rowsBody) {
+        addRowBtn.addEventListener('click', () => {
+            const idx = rowsBody.querySelectorAll('tr.cot-row').length + 1;
+            rowsBody.appendChild(buildRow(idx));
+        });
+    }
+    form.addEventListener('blur', (e) => {
+        const inp = e.target;
+        if (!(inp instanceof HTMLInputElement) || !inp.classList.contains('fijo')) return;
+        inp.value = formatPeso(inp.value);
+    }, true);
+    form.addEventListener('focus', (e) => {
+        const inp = e.target;
+        if (!(inp instanceof HTMLInputElement) || !inp.classList.contains('fijo')) return;
+        inp.value = inp.value.replace(/[^0-9]/g,'');
+    }, true);
 
     // Solo se necesita PizZip para reemplazar etiquetas en el DOCX
     form.addEventListener('submit', async (e) => {
@@ -31,11 +77,14 @@ document.addEventListener('DOMContentLoaded', () => {
             datos.fecha = new Date().toISOString().slice(0, 10);
         }
 
-        const cotizacion = Array.from({ length: 4 }, (_, i) => ({
-            concepto: datos[`concepto${i + 1}`],
-            fijo: datos[`fijo${i + 1}`],
-            variable: datos[`variable${i + 1}`]
-        }));
+        const cotizacion = Array.from(form.querySelectorAll('#cotizacionRows tr.cot-row')).map((tr) => {
+            const idx = tr.dataset.idx;
+            return {
+                concepto: datos[`concepto${idx}`] || '',
+                fijo: datos[`fijo${idx}`] || '',
+                variable: datos[`variable${idx}`] || ''
+            };
+        }).filter((c) => c.concepto || c.fijo || c.variable);
 
         try {
             let numero = 0;
@@ -58,6 +107,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     : datos.fecha;
             let resumen = datos.servicio ? datos.servicio.trim() : '';
             if (resumen.endsWith('.')) resumen = resumen.slice(0, -1);
+            const detalleCotizacion = cotizacion
+                .map((c, i) => `${i + 1}) ${c.concepto || '-'} | ${c.fijo || '-'} | ${c.variable || '-'}`)
+                .join('\n');
 
             const replacements = {
                 '\\[Nombre cliente\\]': datos.nombre,
@@ -66,6 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 '\\[Fecha\\]': fechaFormateada,
                 '\\[Servicio requerido\\]': resumen,
                 '\\[Propuesta de servicio\\]': datos.propuesta,
+                '\\[Detalle cotización\\]': detalleCotizacion,
                 '\\[N\u00famero\\]': numero,
                 '\\[Numero\\]': numero,
                 '\\[Usuario\\]': usuario.usuario || usuario.nombre || ''
@@ -104,6 +157,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 100);
 
             form.reset();
+            if (rowsBody) {
+                rowsBody.innerHTML = '';
+                rowsBody.appendChild(buildRow(1));
+            }
         } catch (err) {
             console.error(err);
             const msg = String(err?.message || "");

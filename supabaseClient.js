@@ -109,18 +109,27 @@
     }
   }
 
+  function setSyncStatus(state, text = "") {
+    if (typeof window.updateSyncStatus === "function") {
+      window.updateSyncStatus(state, text);
+    }
+  }
+
   async function pushTabla(tabla) {
     if (window.sesionExpirada) return false;
     const lista = JSON.parse(localStorage.getItem(localKey(tabla)) || "[]");
     try {
+      setSyncStatus("syncing");
       await apiRequest("upsert", {
         method: "POST",
         body: { table: tabla, records: lista },
       });
       triggerBackgroundRefresh();
+      setSyncStatus("ok");
       return true;
     } catch (error) {
       console.error(`Error al guardar ${tabla}:`, error);
+      setSyncStatus("error");
       return false;
     }
   }
@@ -128,14 +137,17 @@
   async function pushRegistro(tabla, registro) {
     if (window.sesionExpirada) return false;
     try {
+      setSyncStatus("syncing");
       await apiRequest("upsert", {
         method: "POST",
         body: { table: tabla, records: [registro] },
       });
       triggerBackgroundRefresh();
+      setSyncStatus("ok");
       return true;
     } catch (error) {
       console.error(`Error al guardar registro en ${tabla}:`, error);
+      setSyncStatus("error");
       return false;
     }
   }
@@ -143,14 +155,17 @@
   async function deleteRegistro(tabla, id) {
     if (window.sesionExpirada) return false;
     try {
+      setSyncStatus("syncing");
       await apiRequest("delete", {
         method: "POST",
         body: { table: tabla, id },
       });
       triggerBackgroundRefresh();
+      setSyncStatus("ok");
       return true;
     } catch (error) {
       console.error(`Error al eliminar en ${tabla}:`, error);
+      setSyncStatus("error");
       return false;
     }
   }

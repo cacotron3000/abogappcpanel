@@ -912,6 +912,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const centroNotif = document.getElementById("centroNotificaciones");
   const limpiarNotif = document.getElementById("limpiarNotificaciones");
   const notifWrapper = document.getElementById("notificacionesWrapper");
+  const syncStatus = document.getElementById("syncStatus");
   const busquedaGlobalInput = document.getElementById("busquedaGlobalInput");
   const busquedaGlobalResultados = document.getElementById("busquedaGlobalResultados");
   const quickPanel = document.getElementById("quickPanel");
@@ -921,6 +922,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   const hoyExportSemanal = document.getElementById("hoyExportSemanal");
   const sidebar = document.querySelector(".sidebar");
   const toggleSidebarBtn = document.getElementById("toggleSidebar");
+  window.updateSyncStatus = (state = "syncing", text = "") => {
+    if (!syncStatus) return;
+    syncStatus.classList.remove("ok", "syncing", "error");
+    syncStatus.classList.add(state);
+    const labels = {
+      ok: "Sincronizado",
+      syncing: "Sincronizando",
+      error: "Error de sync",
+    };
+    syncStatus.textContent = `● ${text || labels[state] || "Sincronizando"}`;
+  };
+  window.updateSyncStatus("syncing");
   if (busquedaGlobalInput) {
     busquedaGlobalInput.value = "";
     busquedaGlobalInput.setAttribute("autocomplete", "off");
@@ -979,12 +992,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.querySelectorAll("select").forEach(enhanceSelect);
 
   if (window.supabaseSync) {
+    window.updateSyncStatus("syncing");
     const criticas = ["tareasDia", "audiencias", "notificaciones"];
     for (const t of criticas) {
       await window.supabaseSync.pullTabla?.(t);
     }
     setTimeout(() => window.supabaseSync.pullAll(), 300);
     window.supabaseSync.subscribeRealtime();
+    window.updateSyncStatus("ok");
   }
 
   if (quickPanelCerrar && quickPanel) {
