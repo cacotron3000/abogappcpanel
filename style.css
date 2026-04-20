@@ -1626,10 +1626,15 @@ body {
   margin: 4px 8px;
 }
 
+body:not(.dark-mode) .sidebar button,
+body:not(.dark-mode) .sidebar-toggle {
+  color: #111111;
+}
+
 .sidebar button.active,
 .sidebar button:hover {
   background: var(--color-destacado);
-  color: var(--color-principal);
+  color: #111111;
   border-left: 4px solid var(--color-principal);
 }
 
