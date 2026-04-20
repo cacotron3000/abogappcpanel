@@ -213,12 +213,24 @@ function verDetalleTareaDia(id) {
   const t = todas.find(x => x.id === id);
   const modal = document.getElementById("modalDetalleTareaDia");
   if (!t || !modal) return;
+  if (window.mostrarDetalleEntidad) {
+    window.mostrarDetalleEntidad("tarea_dia", t);
+    return;
+  }
   document.getElementById("detalleTareaTitulo").textContent = `📝 ${t.texto}`;
   const nombres = t.asignadosA || (t.asignadoA ? [t.asignadoA] : []);
   const asignado = nombres.length ? nombres.join(", ") : "Sin asignar";
+  const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
+  const cliente = clientes.find((c) => c.id === t.clienteId);
+  const clienteTxt = cliente ? ` · Cliente: ${cliente.nombre}` : "";
   document.getElementById("detalleTareaAsignado").textContent = `👥 Asignado a: ${asignado}`;
   document.getElementById("detalleTareaFecha").textContent = t.creadoEn ? `📅 Creada: ${new Date(t.creadoEn).toLocaleString()}` : "";
   document.getElementById("detalleTareaVence").textContent = t.fechaFin ? `⏳ Vence: ${formatearCorta(t.fechaFin)}` : "";
+  const proxima = document.getElementById("detalleTareaFecha");
+  if (proxima) {
+    const base = t.creadoEn ? `📅 Creada: ${new Date(t.creadoEn).toLocaleString()}` : "";
+    proxima.textContent = `${base}${clienteTxt}${t.proximaAccion ? ` · ✅ Próxima acción: ${t.proximaAccion}` : ""}`;
+  }
   renderComentariosTareaDia(t);
   modal.dataset.id = id;
   modal.classList.remove("oculto");
@@ -431,8 +443,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const cerrar = document.getElementById("cerrarModalTareaDia");
   const form = document.getElementById("tareaDiaForm");
   const selectAsignado = document.getElementById("tareaDiaAsignadoA");
+  const selectCliente = document.getElementById("tareaDiaCliente");
   const selectPrioridad = document.getElementById("tareaDiaPrioridad");
   const inputFechaFin = document.getElementById("tareaDiaFechaFin");
+  const inputProximaAccion = document.getElementById("tareaDiaProximaAccion");
   const modalDetalle = document.getElementById("modalDetalleTareaDia");
   const cerrarDetalle = document.getElementById("cerrarModalDetalleTareaDia");
   const btnAgregarComentario = document.getElementById("agregarComentarioTarea");
@@ -444,8 +458,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (titulo) titulo.textContent = "Agregar tarea";
       if(form) form.reset();
       if(selectAsignado) setSelectValue(selectAsignado, []);
+      if (selectCliente) setSelectValue(selectCliente, "");
       if(selectPrioridad) setSelectValue(selectPrioridad, "");
       if(inputFechaFin) inputFechaFin.value = "";
+      if(inputProximaAccion) inputProximaAccion.value = "";
       modal.classList.remove("oculto");
     });
   });
@@ -475,8 +491,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const asignadosA = selectAsignado
         ? Array.from(selectAsignado.selectedOptions).map(o => o.value)
         : [];
+      const clienteId = selectCliente && selectCliente.value ? parseInt(selectCliente.value, 10) : null;
       const prioridad = selectPrioridad ? selectPrioridad.value : "";
-      const fechaFin = inputFechaFin ? inputFechaFin.value : "";
+      const fechaFin = inputFechaFin && inputFechaFin.value
+        ? inputFechaFin.value
+        : new Date().toISOString().slice(0, 10);
+      const proximaAccion = inputProximaAccion ? inputProximaAccion.value.trim() : "";
+      if (!proximaAccion) {
+        mostrarNotificacion("La próxima acción es obligatoria", "#FF9800");
+        return;
+      }
       if(texto){
         const tareas=JSON.parse(localStorage.getItem("tareasDia"))||[];
         if (modal.dataset.editing) {
@@ -485,8 +509,10 @@ document.addEventListener("DOMContentLoaded", () => {
           if (t) {
             t.texto = texto;
             t.asignadosA = asignadosA;
+            t.clienteId = clienteId;
             t.prioridad = prioridad;
             t.fechaFin = fechaFin;
+            t.proximaAccion = proximaAccion;
             localStorage.setItem("tareasDia",JSON.stringify(tareas));
             if (window.supabaseSync) {
               await supabaseSync.pushRegistro("diario", t);
@@ -494,7 +520,7 @@ document.addEventListener("DOMContentLoaded", () => {
             mostrarNotificacion("Tarea actualizada", "#00E500");
           }
         } else {
-          const nueva={id:Date.now(),texto,asignadosA,prioridad,fechaFin,creadoEn:new Date().toISOString(),comentarios:[]};
+          const nueva={id:Date.now(),texto,asignadosA,clienteId,prioridad,fechaFin,proximaAccion,creadoEn:new Date().toISOString(),comentarios:[]};
           tareas.push(nueva);
           localStorage.setItem("tareasDia",JSON.stringify(tareas));
           let ok = true;
@@ -519,11 +545,17 @@ document.addEventListener("DOMContentLoaded", () => {
         if(selectAsignado){
           setSelectValue(selectAsignado, []);
         }
+        if (selectCliente) {
+          setSelectValue(selectCliente, "");
+        }
         if(selectPrioridad){
           setSelectValue(selectPrioridad, "");
         }
         if(inputFechaFin){
           inputFechaFin.value = "";
+        }
+        if(inputProximaAccion){
+          inputProximaAccion.value = "";
         }
         modal.dataset.editing = "";
         const titulo = modal.querySelector("h3");
@@ -602,6 +634,17 @@ document.addEventListener("DOMContentLoaded", () => {
   if(selectPrioridad && typeof enhanceSelect === "function"){
     enhanceSelect(selectPrioridad);
   }
+  if (selectCliente) {
+    const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
+    selectCliente.innerHTML = '<option value="">Cliente (opcional)</option>';
+    clientes.forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.nombre;
+      selectCliente.appendChild(opt);
+    });
+    if (typeof enhanceSelect === "function") enhanceSelect(selectCliente);
+  }
 
 
   actualizarDashboard();
@@ -616,11 +659,15 @@ function abrirEdicionTareaDia(id){
   const texto=document.getElementById("tareaDiaTexto");
   const selectAsignado=document.getElementById("tareaDiaAsignadoA");
   const selectPrioridad=document.getElementById("tareaDiaPrioridad");
+  const selectCliente = document.getElementById("tareaDiaCliente");
   const inputFechaFin=document.getElementById("tareaDiaFechaFin");
+  const inputProximaAccion = document.getElementById("tareaDiaProximaAccion");
   if(texto) texto.value=t.texto;
   if(selectAsignado) setSelectValue(selectAsignado, t.asignadosA || []);
   if(selectPrioridad) setSelectValue(selectPrioridad, t.prioridad || "");
+  if (selectCliente) setSelectValue(selectCliente, t.clienteId || "");
   if(inputFechaFin) inputFechaFin.value = t.fechaFin || "";
+  if (inputProximaAccion) inputProximaAccion.value = t.proximaAccion || "";
   modal.dataset.editing=id;
   const titulo=modal.querySelector("h3");
   if(titulo) titulo.textContent="Editar tarea";

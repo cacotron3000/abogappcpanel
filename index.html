@@ -45,6 +45,12 @@
       <div class="header-principal-info">
         <div id="fechaChile" class="fecha-chile"></div>
         <div id="infoUsuario" class="usuario-info"></div>
+        <div class="header-busqueda-global">
+          <span class="search-icon"><i class="fa-sharp fa-solid fa-magnifying-glass"></i></span>
+          <input type="search" id="busquedaGlobalInput" name="global_search" placeholder="Buscar en toda la app..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+          <span class="search-shortcut">/</span>
+          <div id="busquedaGlobalResultados" class="oculto"></div>
+        </div>
       </div>
     </div>
     <div id="notificacionesWrapper" class="notif-wrapper oculto">
@@ -79,9 +85,9 @@
       <button id="toggleSidebar" class="sidebar-toggle"><i class="fa-sharp fa-solid fa-bars"></i></button>
       <!-- Cada botón representa una vista distinta. Se usarán para mostrar/ocultar secciones -->
       <button data-tab="dashboard" class="tab active"><i class="fa-sharp fa-solid fa-chart-line"></i><span> Dashboard</span></button>
+      <button data-tab="hoy" class="tab"><i class="fa-sharp fa-solid fa-calendar-day"></i><span> Hoy</span></button>
       <button data-tab="audiencias" class="tab"><i class="fa-sharp fa-solid fa-gavel"></i><span> Audiencias</span><span id="audienciasCantidad">0</span></button>
       <button data-tab="tareas" class="tab"><i class="fa-sharp fa-solid fa-clipboard-list"></i><span> Tareas</span><span id="tareasDiaCantidad">0</span></button>
-      <button data-tab="mistareas" class="tab"><i class="fa-sharp fa-solid fa-user-check"></i><span> Mis Tareas</span><span id="misTareasCantidad">0</span></button>
       <button data-tab="internas" class="tab"><i class="fa-sharp fa-solid fa-clipboard-check"></i><span> Tareas internas</span></button>
       <button data-tab="clientes" class="tab"><i class="fa-sharp fa-solid fa-user"></i><span> Clientes</span></button>
       <button id="tabUsuarios" data-tab="usuarios" class="tab oculto"><i class="fa-sharp fa-solid fa-users"></i><span> Usuarios</span></button>
@@ -111,11 +117,9 @@
 
   <div class="dashboard-row">
     <div class="dashboard-card ancho-2-4">
-      <h2><i class="fa-sharp fa-solid fa-user-check"></i> Mis tareas (<span id="misTareasCantidadDashboard">0</span>)</h2>
-      <div id="misTareasListaDashboard" class="tareas-limitadas"></div>
-      <button id="expandirMisTareasBtnDashboard" class="mini-boton">Ver más</button>
+      <h2><i class="fa-sharp fa-solid fa-gauge-high"></i> KPI</h2>
+      <div id="kpiResumen"></div>
     </div>
-
     <div class="dashboard-card ancho-2-4">
       <h2><i class="fa-sharp fa-solid fa-clipboard-list"></i> Tareas (<span id="tareasDiaCantidadDashboard">0</span>)
         <button id="actualizarPaginaBtnDashboard" class="mini-boton" title="Actualizar"><i class="fa-sharp fa-solid fa-arrows-rotate"></i></button>
@@ -133,6 +137,37 @@
 
 </section>
 
+      <!-- SECCION HOY -->
+      <section id="vista-hoy" class="vista oculto">
+        <div class="dashboard-card">
+          <h2><i class="fa-sharp fa-solid fa-calendar-day"></i> Bandeja de hoy</h2>
+          <div id="hoyFiltros" class="hoy-filtros">
+            <button class="mini-boton" data-hoy-filtro="todos">Todos</button>
+            <button class="mini-boton" data-hoy-filtro="hoy">Hoy</button>
+            <button class="mini-boton" data-hoy-filtro="vencidas">Vencidas</button>
+            <button class="mini-boton" data-hoy-filtro="semana">Semana</button>
+            <select id="hoyResponsableFiltro" class="mini-boton">
+              <option value="">Responsable: todos</option>
+            </select>
+            <button id="hoyExportSemanal" class="mini-boton">Exportar semanal</button>
+          </div>
+          <div id="hoyResumenCarga"></div>
+          <div id="hoyCalendarioSemanal"></div>
+          <div id="hoyKanban"></div>
+          <div id="hoyAuditoria"></div>
+          <div id="hoyLista"></div>
+        </div>
+      </section>
+
+      <!-- Panel lateral rápido -->
+      <aside id="quickPanel" class="oculto">
+        <div class="quick-panel-header">
+          <strong id="quickPanelTitulo">Detalle</strong>
+          <button id="quickPanelCerrar" class="mini-boton">Cerrar</button>
+        </div>
+        <div id="quickPanelContenido"></div>
+      </aside>
+
       <!-- SECCION TAREAS -->
       <section id="vista-tareas" class="vista oculto">
         <div class="dashboard-card">
@@ -145,14 +180,6 @@
 
         <button id="toggleTareasDiaArchivadas" class="boton">Mostrar tareas completadas</button>
         <div id="tareasDiaArchivadas" class="oculto"></div>
-      </section>
-
-      <!-- SECCION MIS TAREAS -->
-      <section id="vista-mistareas" class="vista oculto">
-        <div class="dashboard-card">
-          <h2><i class="fa-sharp fa-solid fa-user-check"></i> Mis tareas (<span id="misTareasCantidad">0</span>)</h2>
-          <div id="misTareasLista" class="tareas-limitadas"></div>
-        </div>
       </section>
 
       <!-- ===== SECCION 5: Utilidades ===== -->
@@ -424,6 +451,18 @@
         <option value="Impugnado">Impugnado</option>
       </select>
 
+      <label for="exp-responsable">Abogado responsable</label>
+      <input type="text" id="exp-responsable" placeholder="Nombre responsable" />
+
+      <label for="exp-etapa-procesal">Etapa procesal</label>
+      <input type="text" id="exp-etapa-procesal" placeholder="Ej: demanda, prueba, sentencia" />
+
+      <label for="exp-fecha-control">Próximo control semanal</label>
+      <input type="date" id="exp-fecha-control" />
+
+      <label for="exp-proxima-accion">Próxima acción *</label>
+      <input type="text" id="exp-proxima-accion" required placeholder="Acción concreta siguiente" />
+
 
       <!-- Botón para guardar -->
       <button type="submit" class="boton">Guardar Caso</button>
@@ -440,6 +479,7 @@
     <form id="tareaForm">
     <input type="text" id="tarea-titulo" placeholder="Título de la gestión" required>
     <textarea id="tarea-descripcion" placeholder="Descripción"></textarea>
+    <input type="text" id="tarea-proxima-accion" placeholder="Próxima acción (obligatoria)" required>
 
     <select id="tarea-expediente" required>
       <option value="">Seleccionar caso</option>
@@ -561,6 +601,9 @@
     <form id="tareaDiaForm">
       <input type="text" id="tareaDiaTexto" placeholder="Título de la tarea" required>
       <select id="tareaDiaAsignadoA" multiple placeholder="Asignar a..."></select>
+      <select id="tareaDiaCliente">
+        <option value="">Cliente (opcional)</option>
+      </select>
       <select id="tareaDiaPrioridad">
         <option value="">Prioridad (opcional)</option>
         <option value="alta">Alta</option>
@@ -569,6 +612,8 @@
       </select>
       <label for="tareaDiaFechaFin">Fecha prevista de término</label>
       <input type="date" id="tareaDiaFechaFin" placeholder="Fecha de término (opcional)">
+      <label for="tareaDiaProximaAccion">Próxima acción *</label>
+      <input type="text" id="tareaDiaProximaAccion" required placeholder="Siguiente paso concreto">
       <button type="submit" class="boton">Guardar</button>
     </form>
   </div>
@@ -600,6 +645,9 @@
     <form id="tareaInternaForm">
       <input type="text" id="tareaInternaTexto" placeholder="Título de la tarea" required>
       <select id="tareaInternaAsignadoA" multiple placeholder="Asignar a..."></select>
+      <select id="tareaInternaCliente">
+        <option value="">Cliente (opcional)</option>
+      </select>
       <select id="tareaInternaPrioridad">
         <option value="">Prioridad (opcional)</option>
         <option value="alta">Alta</option>
@@ -608,6 +656,8 @@
       </select>
       <label for="tareaInternaFechaFin">Fecha prevista de término</label>
       <input type="date" id="tareaInternaFechaFin" placeholder="Fecha de término (opcional)">
+      <label for="tareaInternaProximaAccion">Próxima acción *</label>
+      <input type="text" id="tareaInternaProximaAccion" required placeholder="Siguiente paso concreto">
       <button type="submit" class="boton">Guardar</button>
     </form>
   </div>
@@ -799,24 +849,11 @@
   </div>
 </div>
 
-<!-- Modal de recordatorio de control de causas -->
-<div id="modalControlCausas" class="modal oculto">
-  <div class="modal-contenido">
-    <span id="modalControlCausasCerrar" class="modal-cerrar">×</span>
-    <h3>¡¡OJO!!</h3>
-    <p>RECUERDA HACER EL CONTROL DE CAUSAS DE ACUERDO A LA DISTRIBUCIÓN SEMANAL QUE TE CORRESPONDE.</p>
-    <p>MARTES - CARLOS<br>
-JUEVES - IGNACIO<br>
-SÁBADO - JOSÉ MANUEL</p>
-  </div>
-</div>
-
-    <!-- AQUI ESTARAN NUESTROS SCRIPT A VINCULAR-->
+<!-- AQUI ESTARAN NUESTROS SCRIPT A VINCULAR-->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-<script src="lib/choices/choices.min.js"></script>
+  <script src="lib/choices/choices.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+<script src="cpanel.config.js"></script>
 <script src="supabaseClient.js"></script>
 <script src="script.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>

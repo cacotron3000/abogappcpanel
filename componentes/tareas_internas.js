@@ -153,12 +153,22 @@ function verDetalleTareaInterna(id) {
   const t = todas.find(x => x.id === id);
   const modal = document.getElementById("modalDetalleTareaInterna");
   if (!t || !modal) return;
+  if (window.mostrarDetalleEntidad) {
+    window.mostrarDetalleEntidad("tarea_interna", t);
+    return;
+  }
   document.getElementById("detalleTareaInternaTitulo").textContent = `📝 ${t.texto}`;
   const nombres = t.asignadosA || [];
   const asignado = nombres.length ? nombres.join(", ") : "Sin asignar";
+  const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
+  const cliente = clientes.find((c) => c.id === t.clienteId);
+  const clienteTxt = cliente ? ` · Cliente: ${cliente.nombre}` : "";
   document.getElementById("detalleTareaInternaAsignado").textContent = `👥 Asignado a: ${asignado}`;
   document.getElementById("detalleTareaInternaFecha").textContent = t.creadoEn ? `📅 Creada: ${new Date(t.creadoEn).toLocaleString()}` : "";
   document.getElementById("detalleTareaInternaVence").textContent = t.fechaFin ? `⏳ Vence: ${formatearCorta(t.fechaFin)}` : "";
+  if (t.proximaAccion) {
+    document.getElementById("detalleTareaInternaVence").textContent += `${clienteTxt} · ✅ Próxima acción: ${t.proximaAccion}`;
+  }
   renderComentariosTareaInterna(t);
   modal.dataset.id = id;
   modal.classList.remove("oculto");
@@ -293,12 +303,16 @@ function abrirEdicionTareaInterna(id) {
   const modalDetalle = document.getElementById("modalDetalleTareaInterna");
   const texto = document.getElementById("tareaInternaTexto");
   const selectAsignado = document.getElementById("tareaInternaAsignadoA");
+  const selectCliente = document.getElementById("tareaInternaCliente");
   const selectPrioridad = document.getElementById("tareaInternaPrioridad");
   const inputFechaFin = document.getElementById("tareaInternaFechaFin");
+  const inputProximaAccion = document.getElementById("tareaInternaProximaAccion");
   if (texto) texto.value = t.texto;
   if (selectAsignado) setSelectValue(selectAsignado, t.asignadosA || []);
+  if (selectCliente) setSelectValue(selectCliente, t.clienteId || "");
   if (selectPrioridad) setSelectValue(selectPrioridad, t.prioridad || "");
   if (inputFechaFin) inputFechaFin.value = t.fechaFin || "";
+  if (inputProximaAccion) inputProximaAccion.value = t.proximaAccion || "";
   modal.dataset.editing = id;
   const titulo = modal.querySelector("h3");
   if (titulo) titulo.textContent = "Editar tarea interna";
@@ -312,6 +326,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const cerrar = document.getElementById("cerrarModalTareaInterna");
   const form = document.getElementById("tareaInternaForm");
   const selectAsignado = document.getElementById("tareaInternaAsignadoA");
+  const selectCliente = document.getElementById("tareaInternaCliente");
   const selectPrioridad = document.getElementById("tareaInternaPrioridad");
   const inputFechaFin = document.getElementById("tareaInternaFechaFin");
   const toggleArch = document.getElementById("toggleTareasInternasArchivadas");
@@ -327,8 +342,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (titulo) titulo.textContent = "Agregar tarea interna";
       if (form) form.reset();
       if (selectAsignado) setSelectValue(selectAsignado, []);
+      if (selectCliente) setSelectValue(selectCliente, "");
       if (selectPrioridad) setSelectValue(selectPrioridad, "");
       if (inputFechaFin) inputFechaFin.value = "";
+      if (inputProximaAccion) inputProximaAccion.value = "";
       modal.classList.remove("oculto");
     });
   }
@@ -351,8 +368,16 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       const texto = document.getElementById("tareaInternaTexto").value.trim();
       const asignadosA = selectAsignado ? Array.from(selectAsignado.selectedOptions).map(o => o.value) : [];
+      const clienteId = selectCliente && selectCliente.value ? parseInt(selectCliente.value, 10) : null;
       const prioridad = selectPrioridad ? selectPrioridad.value : "";
-      const fechaFin = inputFechaFin ? inputFechaFin.value : "";
+      const fechaFin = inputFechaFin && inputFechaFin.value
+        ? inputFechaFin.value
+        : new Date().toISOString().slice(0, 10);
+      const proximaAccion = inputProximaAccion ? inputProximaAccion.value.trim() : "";
+      if (!proximaAccion) {
+        mostrarNotificacion("La próxima acción es obligatoria", "#FF9800");
+        return;
+      }
       if (texto) {
         const tareas = JSON.parse(localStorage.getItem("tareasInternas")) || [];
         if (modal.dataset.editing) {
@@ -361,15 +386,17 @@ document.addEventListener("DOMContentLoaded", () => {
           if (t) {
             t.texto = texto;
             t.asignadosA = asignadosA;
+            t.clienteId = clienteId;
             t.prioridad = prioridad;
             t.fechaFin = fechaFin;
+            t.proximaAccion = proximaAccion;
             localStorage.setItem("tareasInternas", JSON.stringify(tareas));
             if (window.supabaseSync) {
               await supabaseSync.pushRegistro("tareasinternas", t);
             }
           }
         } else {
-          const nueva = { id: Date.now(), texto, asignadosA, prioridad, fechaFin, creadoEn: new Date().toISOString(), comentarios: [] };
+          const nueva = { id: Date.now(), texto, asignadosA, clienteId, prioridad, fechaFin, proximaAccion, creadoEn: new Date().toISOString(), comentarios: [] };
           tareas.push(nueva);
           localStorage.setItem("tareasInternas", JSON.stringify(tareas));
           if (window.supabaseSync) {
@@ -378,8 +405,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         form.reset();
         if (selectAsignado) setSelectValue(selectAsignado, []);
+        if (selectCliente) setSelectValue(selectCliente, "");
         if (selectPrioridad) setSelectValue(selectPrioridad, "");
         if (inputFechaFin) inputFechaFin.value = "";
+        if (inputProximaAccion) inputProximaAccion.value = "";
         modal.dataset.editing = "";
         const titulo = modal.querySelector("h3");
         if (titulo) titulo.textContent = "Agregar tarea interna";
@@ -425,6 +454,17 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   if (selectPrioridad && typeof enhanceSelect === "function") {
     enhanceSelect(selectPrioridad);
+  }
+  if (selectCliente) {
+    const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
+    selectCliente.innerHTML = '<option value="">Cliente (opcional)</option>';
+    clientes.forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.nombre;
+      selectCliente.appendChild(opt);
+    });
+    if (typeof enhanceSelect === "function") enhanceSelect(selectCliente);
   }
   cargarTareasInternas();
   cargarTareasInternasArchivadas();
