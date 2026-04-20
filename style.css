@@ -1613,14 +1613,14 @@ body {
 }
 
 .sidebar {
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 45%, #334155 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border-right: 1px solid var(--border-soft);
 }
 
 .sidebar button,
 .sidebar-toggle {
   background: transparent;
-  color: rgba(248, 250, 252, 0.9);
+  color: var(--color-principal);
   border-bottom: 0;
   border-radius: 10px;
   margin: 4px 8px;
@@ -1628,12 +1628,17 @@ body {
 
 .sidebar button.active,
 .sidebar button:hover {
-  background: rgba(148, 163, 184, 0.22);
-  color: #fff;
+  background: var(--color-destacado);
+  color: var(--color-principal);
+  border-left: 4px solid var(--color-principal);
 }
 
 .header-busqueda-global {
   min-width: 320px;
+}
+
+body:not(.app-activa) .header-busqueda-global {
+  display: none;
 }
 
 .search-icon,

@@ -298,10 +298,7 @@ function actualizarInfoUsuario() {
   const el = document.getElementById("infoUsuario");
   const u = JSON.parse(localStorage.getItem("usuarioActual") || "null");
   if (el && u) {
-    const diff = Date.now() - sessionStart;
-    const m = Math.floor(diff / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
-    el.textContent = `Usuario: ${u.nombre} - ${m}m ${s}s`;
+    el.textContent = `Usuario: ${u.nombre}`;
   }
 }
 
@@ -931,6 +928,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function mostrarApp() {
     loginDiv.classList.add("oculto");
     appDiv.classList.remove("oculto");
+    document.body.classList.add("app-activa");
     document.body.classList.remove("blurred");
     appDiv.classList.remove("blurred");
     const usuariosBtn = document.getElementById("tabUsuarios");
@@ -980,6 +978,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     mostrarApp();
   }
   if (!usuarioActual) {
+    document.body.classList.remove("app-activa");
     loginDiv.classList.remove("oculto");
   }
 
