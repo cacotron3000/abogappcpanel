@@ -216,6 +216,13 @@
         return [];
       }
     },
+    async nextQuoteNumber(min = 290) {
+      const { data } = await apiRequest("next_quote_number", {
+        method: "POST",
+        body: { min },
+      });
+      return Number(data?.numero || 0);
+    },
   };
 
   async function fetchUsersList() {

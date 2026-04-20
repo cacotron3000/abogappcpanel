@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS abogapp_audit (
   KEY idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS abogapp_sequences (
+  name VARCHAR(100) PRIMARY KEY,
+  current_value BIGINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Usuario inicial (cambiar hash por uno generado con password_hash en PHP).
 -- INSERT INTO abogapp_users (email, nombre, password_hash, is_admin)
 -- VALUES ('admin@tu-dominio.com', 'Administrador', '$2y$10$REEMPLAZAR_HASH', 1);

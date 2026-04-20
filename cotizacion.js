@@ -37,20 +37,20 @@ document.addEventListener('DOMContentLoaded', () => {
             variable: datos[`variable${i + 1}`]
         }));
 
-        const propuestas = JSON.parse(localStorage.getItem('propuestas')) || [];
-        const maxHistorico = propuestas.reduce((max, p) => {
-            const n = parseInt(p?.numero, 10);
-            return Number.isFinite(n) ? Math.max(max, n) : max;
-        }, 289);
-        const correlativoGuardado = parseInt(localStorage.getItem('cotizacionCorrelativo') || '289', 10);
-        const base = Math.max(289, maxHistorico, Number.isFinite(correlativoGuardado) ? correlativoGuardado : 289);
-        const numero = base + 1;
-        localStorage.setItem('cotizacionCorrelativo', String(numero));
-        const propuesta = { ...datos, cotizacion, numero };
-        propuestas.push(propuesta);
-        localStorage.setItem('propuestas', JSON.stringify(propuestas));
-
         try {
+            let numero = 0;
+            if (window.supabaseSync?.nextQuoteNumber) {
+                numero = await window.supabaseSync.nextQuoteNumber(290);
+            }
+            if (!Number.isFinite(numero) || numero < 290) {
+                throw new Error('No se pudo obtener correlativo desde base de datos');
+            }
+
+            const propuestas = JSON.parse(localStorage.getItem('propuestas')) || [];
+            const propuesta = { ...datos, cotizacion, numero };
+            propuestas.push(propuesta);
+            localStorage.setItem('propuestas', JSON.stringify(propuestas));
+
             const fechaParts = datos.fecha ? datos.fecha.split('-') : [];
             const fechaFormateada =
                 fechaParts.length === 3
@@ -106,10 +106,18 @@ document.addEventListener('DOMContentLoaded', () => {
             form.reset();
         } catch (err) {
             console.error(err);
+            const msg = String(err?.message || "");
             if (window.mostrarToast) {
-                window.mostrarToast('No se pudo generar el DOCX.', '#e53935');
+                window.mostrarToast(
+                    msg.includes('correlativo')
+                        ? 'No se pudo obtener el correlativo desde base de datos.'
+                        : 'No se pudo generar el DOCX.',
+                    '#e53935'
+                );
             } else {
-                alert('No se pudo generar el DOCX.');
+                alert(msg.includes('correlativo')
+                    ? 'No se pudo obtener el correlativo desde base de datos.'
+                    : 'No se pudo generar el DOCX.');
             }
         } finally {
             if(submitBtn) submitBtn.disabled = false;

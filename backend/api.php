@@ -138,6 +138,36 @@ function upsertRecords(PDO $pdo, string $table, array $records): array {
     return ['ok' => true, 'saved' => $saved];
 }
 
+function nextSequenceValue(PDO $pdo, string $name, int $min = 1): int {
+    if (!isValidTableName($name)) {
+        apiFail('Nombre de secuencia inválido.');
+    }
+    $min = max(1, $min);
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare('INSERT INTO abogapp_sequences (name, current_value) VALUES (:name, :seed)
+            ON DUPLICATE KEY UPDATE current_value = LAST_INSERT_ID(GREATEST(current_value + 1, :min_value))');
+        $stmt->execute([
+            'name' => $name,
+            'seed' => $min,
+            'min_value' => $min,
+        ]);
+        $next = (int) $pdo->query('SELECT LAST_INSERT_ID()')->fetchColumn();
+        if ($next <= 0) {
+            $q = $pdo->prepare('SELECT current_value FROM abogapp_sequences WHERE name = :name LIMIT 1');
+            $q->execute(['name' => $name]);
+            $next = (int) $q->fetchColumn();
+        }
+        if ($next < $min) $next = $min;
+        $pdo->commit();
+        logAudit($pdo, 'sequence_next', 'abogapp_sequences', null, ['name' => $name, 'value' => $next]);
+        return $next;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        apiFail('No fue posible obtener correlativo.', 500);
+    }
+}
+
 switch ($action) {
     case 'pull_table': {
         $table = $_GET['table'] ?? '';
@@ -244,6 +274,13 @@ switch ($action) {
             'active' => (bool) $u['active'],
             'role' => $u['role'] ?? ((int) $u['is_admin'] === 1 ? 'admin' : 'abogado'),
         ]]]);
+        break;
+    }
+
+    case 'next_quote_number': {
+        $min = (int) ($payload['min'] ?? 290);
+        $next = nextSequenceValue($pdo, 'cotizaciones', $min);
+        echo json_encode(['data' => ['numero' => $next]]);
         break;
     }
 
