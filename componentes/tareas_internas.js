@@ -153,12 +153,19 @@ function verDetalleTareaInterna(id) {
   const t = todas.find(x => x.id === id);
   const modal = document.getElementById("modalDetalleTareaInterna");
   if (!t || !modal) return;
+  if (window.mostrarDetalleEntidad) {
+    window.mostrarDetalleEntidad("tarea_interna", t);
+    return;
+  }
   document.getElementById("detalleTareaInternaTitulo").textContent = `📝 ${t.texto}`;
   const nombres = t.asignadosA || [];
   const asignado = nombres.length ? nombres.join(", ") : "Sin asignar";
   document.getElementById("detalleTareaInternaAsignado").textContent = `👥 Asignado a: ${asignado}`;
   document.getElementById("detalleTareaInternaFecha").textContent = t.creadoEn ? `📅 Creada: ${new Date(t.creadoEn).toLocaleString()}` : "";
   document.getElementById("detalleTareaInternaVence").textContent = t.fechaFin ? `⏳ Vence: ${formatearCorta(t.fechaFin)}` : "";
+  if (t.proximaAccion) {
+    document.getElementById("detalleTareaInternaVence").textContent += ` · ✅ Próxima acción: ${t.proximaAccion}`;
+  }
   renderComentariosTareaInterna(t);
   modal.dataset.id = id;
   modal.classList.remove("oculto");
@@ -295,10 +302,12 @@ function abrirEdicionTareaInterna(id) {
   const selectAsignado = document.getElementById("tareaInternaAsignadoA");
   const selectPrioridad = document.getElementById("tareaInternaPrioridad");
   const inputFechaFin = document.getElementById("tareaInternaFechaFin");
+  const inputProximaAccion = document.getElementById("tareaInternaProximaAccion");
   if (texto) texto.value = t.texto;
   if (selectAsignado) setSelectValue(selectAsignado, t.asignadosA || []);
   if (selectPrioridad) setSelectValue(selectPrioridad, t.prioridad || "");
   if (inputFechaFin) inputFechaFin.value = t.fechaFin || "";
+  if (inputProximaAccion) inputProximaAccion.value = t.proximaAccion || "";
   modal.dataset.editing = id;
   const titulo = modal.querySelector("h3");
   if (titulo) titulo.textContent = "Editar tarea interna";
@@ -329,6 +338,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (selectAsignado) setSelectValue(selectAsignado, []);
       if (selectPrioridad) setSelectValue(selectPrioridad, "");
       if (inputFechaFin) inputFechaFin.value = "";
+      if (inputProximaAccion) inputProximaAccion.value = "";
       modal.classList.remove("oculto");
     });
   }
@@ -352,7 +362,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const texto = document.getElementById("tareaInternaTexto").value.trim();
       const asignadosA = selectAsignado ? Array.from(selectAsignado.selectedOptions).map(o => o.value) : [];
       const prioridad = selectPrioridad ? selectPrioridad.value : "";
-      const fechaFin = inputFechaFin ? inputFechaFin.value : "";
+      const fechaFin = inputFechaFin && inputFechaFin.value
+        ? inputFechaFin.value
+        : new Date().toISOString().slice(0, 10);
+      const proximaAccion = inputProximaAccion ? inputProximaAccion.value.trim() : "";
+      if (!proximaAccion) {
+        mostrarNotificacion("La próxima acción es obligatoria", "#FF9800");
+        return;
+      }
       if (texto) {
         const tareas = JSON.parse(localStorage.getItem("tareasInternas")) || [];
         if (modal.dataset.editing) {
@@ -363,13 +380,14 @@ document.addEventListener("DOMContentLoaded", () => {
             t.asignadosA = asignadosA;
             t.prioridad = prioridad;
             t.fechaFin = fechaFin;
+            t.proximaAccion = proximaAccion;
             localStorage.setItem("tareasInternas", JSON.stringify(tareas));
             if (window.supabaseSync) {
               await supabaseSync.pushRegistro("tareasinternas", t);
             }
           }
         } else {
-          const nueva = { id: Date.now(), texto, asignadosA, prioridad, fechaFin, creadoEn: new Date().toISOString(), comentarios: [] };
+          const nueva = { id: Date.now(), texto, asignadosA, prioridad, fechaFin, proximaAccion, creadoEn: new Date().toISOString(), comentarios: [] };
           tareas.push(nueva);
           localStorage.setItem("tareasInternas", JSON.stringify(tareas));
           if (window.supabaseSync) {
@@ -380,6 +398,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (selectAsignado) setSelectValue(selectAsignado, []);
         if (selectPrioridad) setSelectValue(selectPrioridad, "");
         if (inputFechaFin) inputFechaFin.value = "";
+        if (inputProximaAccion) inputProximaAccion.value = "";
         modal.dataset.editing = "";
         const titulo = modal.querySelector("h3");
         if (titulo) titulo.textContent = "Agregar tarea interna";

@@ -177,8 +177,8 @@ if (audienciaForm) {
       titulo: document.getElementById("audienciaTitulo").value.trim(),
       tipo: tipoSelect.value,
       modalidad: modalidadSelect.value,
-      fecha: document.getElementById("audienciaFecha").value,
-      hora: document.getElementById("audienciaHora").value,
+      fecha: document.getElementById("audienciaFecha").value || new Date().toISOString().slice(0, 10),
+      hora: document.getElementById("audienciaHora").value || "09:00",
       notas: document.getElementById("audienciaNotas").value.trim(),
     };
     const audiencias = obtenerAudiencias();
@@ -258,10 +258,14 @@ function terminarAudiencia(id) {
   }
 
 function verDetalleAudiencia(id) {
-  if (!modalDetalleAudiencia) return;
   const todas = obtenerAudiencias().concat(obtenerAudienciasArchivadas());
   const a = todas.find(x => x.id === id);
   if (!a) return;
+  if (window.mostrarDetalleEntidad) {
+    window.mostrarDetalleEntidad("audiencia", a);
+    return;
+  }
+  if (!modalDetalleAudiencia) return;
   detalleAudienciaTitulo.textContent = a.titulo;
   detalleAudienciaTipo.textContent = `Tipo: ${a.tipo}`;
   detalleAudienciaModalidad.textContent = `Modalidad: ${a.modalidad}`;

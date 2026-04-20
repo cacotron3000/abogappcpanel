@@ -27,6 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if(docxLoader) docxLoader.classList.remove('oculto');
         const datos = Object.fromEntries(new FormData(form).entries());
         const usuario = JSON.parse(localStorage.getItem('usuarioActual') || '{}');
+        if (!datos.fecha) {
+            datos.fecha = new Date().toISOString().slice(0, 10);
+        }
 
         const cotizacion = Array.from({ length: 4 }, (_, i) => ({
             concepto: datos[`concepto${i + 1}`],
@@ -34,27 +37,20 @@ document.addEventListener('DOMContentLoaded', () => {
             variable: datos[`variable${i + 1}`]
         }));
 
-        let numero = 0;
         try {
-            const { data, error } = await sb
-                .from('cotizaciones')
-                .insert({})
-                .select('id')
-                .single();
-            if (error) throw error;
-            numero = data.id;
-        } catch (err) {
-            console.error('Error storing quotation number', err);
+            let numero = 0;
+            if (window.supabaseSync?.nextQuoteNumber) {
+                numero = await window.supabaseSync.nextQuoteNumber(290);
+            }
+            if (!Number.isFinite(numero) || numero < 290) {
+                throw new Error('No se pudo obtener correlativo desde base de datos');
+            }
+
             const propuestas = JSON.parse(localStorage.getItem('propuestas')) || [];
-            numero = 182 + propuestas.length;
-        }
+            const propuesta = { ...datos, cotizacion, numero };
+            propuestas.push(propuesta);
+            localStorage.setItem('propuestas', JSON.stringify(propuestas));
 
-        const propuestas = JSON.parse(localStorage.getItem('propuestas')) || [];
-        const propuesta = { ...datos, cotizacion, numero };
-        propuestas.push(propuesta);
-        localStorage.setItem('propuestas', JSON.stringify(propuestas));
-
-        try {
             const fechaParts = datos.fecha ? datos.fecha.split('-') : [];
             const fechaFormateada =
                 fechaParts.length === 3
@@ -110,10 +106,18 @@ document.addEventListener('DOMContentLoaded', () => {
             form.reset();
         } catch (err) {
             console.error(err);
+            const msg = String(err?.message || "");
             if (window.mostrarToast) {
-                window.mostrarToast('No se pudo generar el DOCX.', '#e53935');
+                window.mostrarToast(
+                    msg.includes('correlativo')
+                        ? 'No se pudo obtener el correlativo desde base de datos.'
+                        : 'No se pudo generar el DOCX.',
+                    '#e53935'
+                );
             } else {
-                alert('No se pudo generar el DOCX.');
+                alert(msg.includes('correlativo')
+                    ? 'No se pudo obtener el correlativo desde base de datos.'
+                    : 'No se pudo generar el DOCX.');
             }
         } finally {
             if(submitBtn) submitBtn.disabled = false;
