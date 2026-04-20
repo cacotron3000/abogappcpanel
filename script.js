@@ -633,19 +633,21 @@ function actualizarKpiResumen() {
   const tareasGestion = JSON.parse(localStorage.getItem("tareas") || "[]");
   const tareasDia = JSON.parse(localStorage.getItem("tareasDia") || "[]");
   const tareasInternas = JSON.parse(localStorage.getItem("tareasInternas") || "[]");
-  const mapaTareas = new Map();
-  [...tareasGestion, ...tareasDia, ...tareasInternas].forEach((t) => {
-    const key = `${t.id ?? ""}-${t.titulo || t.texto || ""}`;
-    mapaTareas.set(key, t);
-  });
-  const tareas = Array.from(mapaTareas.values());
+  const tareasGestionArchivadas = JSON.parse(localStorage.getItem("tareasArchivadas") || "[]");
+  const tareasDiaArchivadas = JSON.parse(localStorage.getItem("tareasDiaArchivadas") || "[]");
+  const tareasInternasArchivadas = JSON.parse(localStorage.getItem("tareasInternasArchivadas") || "[]");
   const audiencias = JSON.parse(localStorage.getItem("audiencias") || "[]");
   const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
-  const vencidas = tareas.filter((t) => esVencida(t.fin || t.fechaFin, t.estado)).length;
-  const terminadas = tareas.filter((t) => (t.estado || "").toLowerCase().includes("termin")).length;
+  const vencidasGestion = tareasGestion.filter((t) => esVencida(t.fin, t.estado)).length;
+  const vencidasDia = tareasDia.filter((t) => esVencida(t.fechaFin, "pendiente")).length;
+  const vencidasInternas = tareasInternas.filter((t) => esVencida(t.fechaFin, "pendiente")).length;
+  const vencidas = vencidasGestion + vencidasDia + vencidasInternas;
+  const terminadas = tareasGestionArchivadas.length + tareasDiaArchivadas.length + tareasInternasArchivadas.length;
   el.innerHTML = `
     <button class="kpi-item" data-kpi="clientes"><strong>Clientes</strong><br>${clientes.length}</button>
-    <button class="kpi-item" data-kpi="tareas"><strong>Tareas activas</strong><br>${tareas.length}</button>
+    <button class="kpi-item" data-kpi="gestiones"><strong>Gestiones</strong><br>${tareasGestion.length}</button>
+    <button class="kpi-item" data-kpi="tareas_dia"><strong>Tareas del día</strong><br>${tareasDia.length}</button>
+    <button class="kpi-item" data-kpi="internas"><strong>Internas</strong><br>${tareasInternas.length}</button>
     <button class="kpi-item" data-kpi="vencidas"><strong>Vencidas</strong><br>${vencidas}</button>
     <button class="kpi-item" data-kpi="terminadas"><strong>Terminadas</strong><br>${terminadas}</button>
     <button class="kpi-item" data-kpi="audiencias"><strong>Audiencias</strong><br>${audiencias.length}</button>
@@ -656,8 +658,12 @@ function actualizarKpiResumen() {
       if (k === "vencidas") {
         filtroHoy = "vencidas";
         cambiarVista("hoy");
-      } else if (k === "tareas") {
+      } else if (k === "tareas_dia") {
         cambiarVista("tareas");
+      } else if (k === "internas") {
+        cambiarVista("internas");
+      } else if (k === "gestiones") {
+        cambiarVista("hoy");
       } else if (k === "audiencias") {
         cambiarVista("audiencias");
       } else if (k === "clientes") {
