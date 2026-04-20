@@ -228,6 +228,22 @@ tareaForm.addEventListener("submit", async (e) => {
 
   const ahora = new Date().toISOString();
   const usuario = JSON.parse(localStorage.getItem("usuarioActual") || "{}");
+  const expedientes = JSON.parse(localStorage.getItem("expedientes")) || [];
+  const expedienteSeleccionado = expedientes.find(
+    (x) => x.id === parseInt(document.getElementById("tarea-expediente").value)
+  );
+  const descripcionIngresada = document.getElementById("tarea-descripcion").value.trim();
+  let descripcionPlantilla = descripcionIngresada;
+  if (!descripcionPlantilla) {
+    const textoExp = `${expedienteSeleccionado?.materia || ""} ${expedienteSeleccionado?.tribunal || ""}`.toLowerCase();
+    if (textoExp.includes("familia")) {
+      descripcionPlantilla = "Plantilla Familia: revisar carpeta, preparar escrito, confirmar audiencia y notificar cliente.";
+    } else if (textoExp.includes("laboral") || textoExp.includes("trabajo")) {
+      descripcionPlantilla = "Plantilla Laboral: recopilar antecedentes, preparar estrategia, actualizar cliente y registrar avance.";
+    } else {
+      descripcionPlantilla = "Plantilla General: revisar caso, registrar próximos hitos y coordinar tareas.";
+    }
+  }
   const nuevaTarea = {
     id: editandoTarea ? tareaEditandoId : Date.now(),
     created_at: editandoTarea
@@ -235,7 +251,8 @@ tareaForm.addEventListener("submit", async (e) => {
       : ahora,
     updated_at: ahora,
     titulo: document.getElementById("tarea-titulo").value,
-    descripcion: document.getElementById("tarea-descripcion").value || "no indicado",
+    descripcion: descripcionPlantilla || "no indicado",
+    proximaAccion: document.getElementById("tarea-proxima-accion").value.trim(),
     expedienteId: parseInt(document.getElementById("tarea-expediente").value),
     inicio: document.getElementById("tarea-inicio").value,
     fin: document.getElementById("tarea-fin").value,
@@ -245,6 +262,10 @@ tareaForm.addEventListener("submit", async (e) => {
       ? (JSON.parse(localStorage.getItem("tareas")) || []).find(t => t.id === tareaEditandoId)?.creadoPor || usuario.nombre
       : usuario.nombre
   };
+  if (!nuevaTarea.proximaAccion) {
+    mostrarNotificacion("Debe registrar la próxima acción de la gestión", "#FF9800");
+    return;
+  }
 
   if (nuevaTarea.estado === "Terminado") {
     nuevaTarea.archivadoEn = ahora;
@@ -316,6 +337,7 @@ function editarTarea(id) {
   document.getElementById("tarea-titulo").value = t.titulo;
   document.getElementById("tarea-descripcion").value =
     t.descripcion === "no indicado" ? "" : t.descripcion;
+  document.getElementById("tarea-proxima-accion").value = t.proximaAccion || "";
   setSelectValue(document.getElementById("tarea-expediente"), t.expedienteId);
   document.getElementById("tarea-inicio").value = t.inicio;
   document.getElementById("tarea-fin").value = t.fin;
@@ -417,6 +439,10 @@ function verDetalleTarea(id) {
   const clientes = JSON.parse(localStorage.getItem("clientes")) || [];
   const t = todas.find(t => t.id === id);
   if (!t) return;
+  if (window.mostrarDetalleEntidad) {
+    window.mostrarDetalleEntidad("tarea", t);
+    return;
+  }
 
   const expediente = expedientes.find(e => e.id === t.expedienteId);
   const nombreExp = expediente ? expediente.titulo : "📁 Sin título";
@@ -431,6 +457,7 @@ function verDetalleTarea(id) {
     <p><strong>📅 FIN:</strong> ${formatearCorta(t.fin) || "No definido"}</p>
     <p><strong>📌 ESTADO:</strong> ${t.estado}</p>
     <p><strong>⚠️ PRIORIDAD:</strong> ${t.prioridad}</p>
+    <p class="full-span"><strong>✅ PRÓXIMA ACCIÓN:</strong> ${t.proximaAccion || "-"}</p>
     <hr class="full-span"><p class="full-span"><strong>CREADO POR:</strong> ${t.creadoPor || "Desconocido"}</p>
     ${t.archivadoEn ? `<p class="full-span"><strong>ARCHIVADO:</strong> ${new Date(t.archivadoEn).toLocaleString()} por ${t.archivadoPor || "Desconocido"}</p>` : ""}
   `;

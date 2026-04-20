@@ -169,6 +169,8 @@ function cargarExpedientes() {
       <div>Variable: ${exp.variable}</div>
       <div>Tribunal: ${exp.tribunal || "No especificado"}</div>
       <div class="estado-line">Estado: <span class="estado ${clase}">${exp.tramite}</span></div>
+      <div>Responsable: ${exp.responsable || "Sin asignar"}</div>
+      <div>Próxima acción: ${exp.proximaAccion || "-"}</div>
       <button class="boton-eliminar" onclick="eliminarExpediente(${exp.id}); event.stopPropagation();">🗑 Eliminar</button>
       <button class="boton-archivar" onclick="archivarExpediente(${exp.id}); event.stopPropagation();">📦 Archivar</button>
     `;
@@ -248,13 +250,23 @@ expForm.addEventListener("submit", async (e) => {
     })(),
     variable: document.getElementById("exp-variable").value || "Sin variable",
     tramite: document.getElementById("exp-tramite").value || "no indicado",
+    responsable: document.getElementById("exp-responsable").value.trim() || "Sin asignar",
+    etapaProcesal: document.getElementById("exp-etapa-procesal").value.trim() || "Sin etapa",
+    fechaControl: document.getElementById("exp-fecha-control").value || "",
+    proximaAccion: document.getElementById("exp-proxima-accion").value.trim(),
     creadoPor: editandoExpediente
       ? (JSON.parse(localStorage.getItem("expedientes")) || []).find(e => e.id === expedienteEditandoId)?.creadoPor || usuario.nombre
       : usuario.nombre,
   };
 
+  if (!nuevoExp.proximaAccion) {
+    mostrarNotificacion("Debe indicar la próxima acción del caso", "#FF9800");
+    return;
+  }
+
   let expedientes = JSON.parse(localStorage.getItem("expedientes")) || [];
 
+  const eraEdicion = editandoExpediente;
   if (editandoExpediente) {
     expedientes = expedientes.map((e) => (e.id === nuevoExp.id ? nuevoExp : e));
     editandoExpediente = false;
@@ -270,11 +282,47 @@ expForm.addEventListener("submit", async (e) => {
   }
   if (ok) {
     mostrarNotificacion("Datos guardados", "#00E500");
-    const accion = editandoExpediente ? "modificado" : "creado";
+    const accion = eraEdicion ? "modificado" : "creado";
     registrarNotificacion(
       `Caso "${nuevoExp.titulo}" ${accion} por ${usuario.nombre}`,
       "expedientes"
     );
+    if (!eraEdicion) {
+      const flujosPorMateria = {
+        version: "v2.0",
+        familia: ["Revisión de antecedentes", "Borrador de escrito inicial", "Coordinar audiencia"],
+        laboral: ["Revisión documental laboral", "Definir estrategia probatoria", "Seguimiento con cliente"],
+        default: ["Revisión del caso", "Definir plan de acción"],
+      };
+      const baseFlujos = [];
+      const materia = (nuevoExp.materia || "").toLowerCase();
+      if (materia.includes("familia")) {
+        baseFlujos.push(...flujosPorMateria.familia);
+      } else if (materia.includes("laboral") || materia.includes("trabajo")) {
+        baseFlujos.push(...flujosPorMateria.laboral);
+      } else {
+        baseFlujos.push(...flujosPorMateria.default);
+      }
+      let tareas = JSON.parse(localStorage.getItem("tareas") || "[]");
+      for (const titulo of baseFlujos) {
+        const t = {
+          id: Date.now() + Math.floor(Math.random() * 10000),
+          titulo: `[Flujo] ${titulo}`,
+          descripcion: `Tarea automática creada por flujo de ${nuevoExp.materia || "caso general"}.`,
+          expedienteId: nuevoExp.id,
+          inicio: new Date().toISOString().slice(0, 10),
+          fin: "",
+          estado: "Pendiente",
+          prioridad: "media",
+          creadoPor: usuario.nombre || "Sistema",
+          proximaAccion: "Actualizar avance y fijar siguiente hito",
+          flujoVersion: flujosPorMateria.version,
+        };
+        tareas.push(t);
+        if (window.supabaseSync) await supabaseSync.pushRegistro("tareas", t);
+      }
+      localStorage.setItem("tareas", JSON.stringify(tareas));
+    }
     if (["Terminado exitosamente", "Término fallido"].includes(nuevoExp.tramite)) {
       archivarExpediente(nuevoExp.id);
     }
@@ -327,6 +375,10 @@ function editarExpediente(id) {
     document.getElementById("exp-tramite"),
     exp.tramite === "no indicado" ? "" : exp.tramite
   );
+  document.getElementById("exp-responsable").value = exp.responsable || "";
+  document.getElementById("exp-etapa-procesal").value = exp.etapaProcesal || "";
+  document.getElementById("exp-fecha-control").value = exp.fechaControl || "";
+  document.getElementById("exp-proxima-accion").value = exp.proximaAccion || "";
 
   editandoExpediente = true;
   expedienteEditandoId = id;
@@ -456,6 +508,10 @@ function verDetalleExpediente(id) {
     <p><strong>📈 VARIABLE:</strong> ${exp.variable}</p>
     <p class="full-span"><strong>📌 PROPUESTA:</strong> ${exp.propuesta}</p>
     <p class="full-span"><strong>⚙️ TRÁMITE:</strong> ${exp.tramite}</p>
+    <p><strong>👨‍⚖️ RESPONSABLE:</strong> ${exp.responsable || "Sin asignar"}</p>
+    <p><strong>🧭 ETAPA:</strong> ${exp.etapaProcesal || "-"}</p>
+    <p><strong>🗓 CONTROL:</strong> ${exp.fechaControl || "-"}</p>
+    <p class="full-span"><strong>✅ PRÓXIMA ACCIÓN:</strong> ${exp.proximaAccion || "-"}</p>
     ${tareasHTML}
     <hr class="full-span"><p class="full-span"><strong>👤 Creado por:</strong> ${exp.creadoPor || "Desconocido"}</p>
     ${exp.archivadoEn ? `<p class="full-span"><strong>📦 Archivado:</strong> ${new Date(exp.archivadoEn).toLocaleString()} por ${exp.archivadoPor || "Desconocido"}</p>` : ""}
